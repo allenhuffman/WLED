@@ -1,5 +1,10 @@
 //#define BUILD_FOR_WOKWI
 
+// 12-28-2022
+// 12-28-2022b
+// 12-28-2022c
+// 12-28-2022d
+
 #pragma once
 
 #if !defined(BUILD_FOR_WOKWI)
@@ -339,6 +344,7 @@ private:
     unsigned long turnOffRightBlinkerTimer = 0;
     unsigned long configTimer = 0;
     unsigned long turnOffHazardsTimer = 0;
+    unsigned long shortPressTimer = 0;
 
     // State machine
     int state = STATE_POWERUP;
@@ -587,8 +593,8 @@ public:
 
     void turnHazardsOn()
     {
-        addPresetToQueue(hazardPreset);
         blinkerState = BLINKERS_HAZARD;
+        addPresetToQueue(hazardPreset);
     }
 
     void turnHazardsOff()
@@ -620,10 +626,20 @@ public:
             }
 #endif // WOKWI
 
-            blinkerState = BLINKERS_OFF;
-            turnOffLeftBlinkerTimer = 0;
-            turnOffRightBlinkerTimer = 0;
-            addPresetToQueue(brakePreset);            
+            // blinkerState = BLINKERS_OFF;
+            // turnOffLeftBlinkerTimer = 0;
+            // turnOffRightBlinkerTimer = 0;
+            addPresetToQueue(brakePreset);
+
+            if (blinkerState == BLINKERS_LEFT)
+            {
+                addPresetToQueue(turnLeftPreset);
+            }
+            else if (blinkerState == BLINKERS_RIGHT)
+            {
+                addPresetToQueue(turnRightPreset);
+            }
+            // #error TODO
         }
 
         brakingState = state;
@@ -636,15 +652,21 @@ public:
         // TODO: do we EVER send brakes off?
         if (blinkerState == BLINKERS_LEFT)
         {
-            turnRightBlinkerOff();
+            //turnRightBlinkerOff();
+            // Turn off right blinker segment.
+            addPresetToQueue(presetTurnRightOff);
         }
         else if (blinkerState == BLINKERS_RIGHT)
         {
-            turnLeftBlinkerOff();
+            //turnLeftBlinkerOff();
+            // Turn off left blinker segment.
+            addPresetToQueue(presetTurnLeftOff);
         }
         else
         {
-            turnLeftAndRightBlinkersOff();
+            //turnLeftAndRightBlinkersOff();
+            // Turn off both blinker segments.
+            addPresetToQueue(presetTurnBothOff);
         }
 
         // TODO: Do we need to do this here?
@@ -951,21 +973,30 @@ public:
                     if ((rightButtonStatus == BUTTON_RELEASED) ||
                         (rightButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        // if (blinkerState == BLINKERS_RIGHT)
-                        // {
-                        //     turnRightBlinkerOff();
-                        // }
-
-                        if (blinkerState == BLINKERS_OFF)
+                        if (leftButtonCounter++ > 10)
                         {
-                            turnLeftBlinkerOn();
-                        }
+                            // if (blinkerState == BLINKERS_RIGHT)
+                            // {
+                            //     turnRightBlinkerOff();
+                            // }
 
-                        if (blinkerState == BLINKERS_LEFT)
-                        {
-                            // Start timer so we know when to shut it off.
-                            turnOffLeftBlinkerTimer = millis();
+                            if (blinkerState == BLINKERS_OFF)
+                            {
+                                turnLeftBlinkerOn();
+                            }
+
+                            if (blinkerState == BLINKERS_LEFT)
+                            {
+                                // Start timer so we know when to shut it off.
+                                turnOffLeftBlinkerTimer = millis();
+                            }
+
+                            leftButtonCounter = 0;
                         }
+                    }
+                    else
+                    {
+                        leftButtonCounter = 0;  
                     }
                     break;
               
@@ -1004,21 +1035,30 @@ public:
                     if ((leftButtonStatus == BUTTON_RELEASED) ||
                         (leftButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        // if (blinkerState == BLINKERS_RIGHT)
-                        // {
-                        //     turnLeftBlinkerOff();
-                        // }
-
-                        if (blinkerState == BLINKERS_OFF)
+                        if (rightButtonCounter++ > 10)
                         {
-                            turnRightBlinkerOn();
-                        }
+                            // if (blinkerState == BLINKERS_RIGHT)
+                            // {
+                            //     turnLeftBlinkerOff();
+                            // }
 
-                        if (blinkerState == BLINKERS_RIGHT)
-                        {
-                            // Start timer so we know when to shut it off.
-                            turnOffRightBlinkerTimer = millis();
+                            if (blinkerState == BLINKERS_OFF)
+                            {
+                                turnRightBlinkerOn();
+                            }
+
+                            if (blinkerState == BLINKERS_RIGHT)
+                            {
+                                // Start timer so we know when to shut it off.
+                                turnOffRightBlinkerTimer = millis();
+                            }
+                            
+                            rightButtonCounter = 0;
                         }
+                    }
+                    else
+                    {
+                        rightButtonCounter = 0;
                     }
                     break;
 
@@ -1725,11 +1765,11 @@ public:
   }
 
 
-  /*---------------------------------------------------------------------------*/
-  // Scan all buttons and store status.
-  /*---------------------------------------------------------------------------*/
-  void pollButtons()
-  {
+/*---------------------------------------------------------------------------*/
+    // Scan all buttons and store status.
+    /*---------------------------------------------------------------------------*/
+    void pollButtons()
+    {
         // Read them all at the same time.
         bool buttonPressedNow[WLED_MAX_BUTTONS];
         for (int b = 0; b < WLED_MAX_BUTTONS; b++)
@@ -1737,60 +1777,88 @@ public:
             buttonPressedNow[b] = isButtonPressed(b);
         }
 
-      // Some logic copied from button.cpp
-      unsigned long now = millis();
+        // Some logic copied from button.cpp
+        unsigned long now = millis();
 
-      for (int b=0; b<WLED_MAX_BUTTONS; b++)
-      {
-          buttonStatus[b] = BUTTON_RELEASED;
+        for (int b=0; b<WLED_MAX_BUTTONS; b++)
+        {
+            //buttonStatus[b] = BUTTON_RELEASED;
 
-          // momentary button logic
-          if (buttonPressedNow[b]) // pressed
-          {
-              if (!buttonPressedBefore[b])
-              {
-                  buttonPressedBefore[b] = true;
-                  buttonPressedTime[b] = now;
-              }
+            // momentary button logic
+            if (buttonPressedNow[b]) // pressed
+            {
+                if (!buttonPressedBefore[b])
+                {
+                    buttonPressedBefore[b] = true;
+                    buttonPressedTime[b] = now;
+                }
 
-              // TODO: Clean this up.
-              if (now - buttonPressedTime[b] > WLED_DEBOUNCE_THRESHOLD)
-              {
-                  buttonStatus[b] = BUTTON_PRESSED;
-              }
+                long dur = now - buttonPressedTime[b];
 
-              if (now - buttonPressedTime[b] > WLED_LONG_PRESS) // long press
-              {
-                  if (!buttonLongPressed[b])
-                  {
-                      buttonLongPressed[b] = true;
-                  }
+                if (dur > WLED_LONG_PRESS) // long press
+                {
+                    if (!buttonLongPressed[b])
+                    {
+                        buttonLongPressed[b] = true;
+                    }
 
-                  buttonStatus[b] = BUTTON_LONG_PRESS;
-              }
-          }
-          else if (!buttonPressedNow[b] && buttonPressedBefore[b])
-          {
-              // released
-              long dur = now - buttonPressedTime[b];
+                    buttonStatus[b] = BUTTON_LONG_PRESS;
+                }
+                else if (dur > WLED_DEBOUNCE_THRESHOLD)
+                {
+                    buttonStatus[b] = BUTTON_PRESSED;
+                }
+                else
+                {
+                     buttonStatus[b] = BUTTON_RELEASED;
+                }
+            }
+            else if (!buttonPressedNow[b] && buttonPressedBefore[b])
+            {
+                // released
+                long dur = now - buttonPressedTime[b];
 
-              if (dur < WLED_DEBOUNCE_THRESHOLD)
-              {
-                  buttonPressedBefore[b] = false;
-              }
-              else // dur >= WLED_DEBOUNCE_THRESHOLD
-              {
-                  if (!buttonLongPressed[b]) // short press
-                  {
-                      buttonStatus[b] = BUTTON_SHORT_PRESS;
-                  }
+                if (dur < WLED_DEBOUNCE_THRESHOLD)
+                {
+                    buttonPressedBefore[b] = false;
+                    buttonStatus[b] = BUTTON_RELEASED;
+                }
+                else if (dur >= WLED_DEBOUNCE_THRESHOLD)
+                {
+                    if (!buttonLongPressed[b]) // short press
+                    {
+                        if (buttonStatus[b] != BUTTON_SHORT_PRESS)
+                        {
+                            buttonStatus[b] = BUTTON_SHORT_PRESS;
+                            shortPressTimer = millis();
+                        }
+                    }
+                    else
+                    {
+                        buttonStatus[b] = BUTTON_RELEASED;
+                        buttonLongPressed[b] = false;
+                        buttonPressedBefore[b] = false;
+                    }
 
-                  buttonLongPressed[b] = false;
-                  buttonPressedBefore[b] = false;
-              }
-          }
-      } // end of for (int b=0; b<WLED_MAX_BUTTONS; b++)
-  }
+                    // TODO: Clean this up.
+
+                    // Hold short press for some time...
+                    if ((shortPressTimer != 0) && (millis() - shortPressTimer > 50))
+                    {
+                        shortPressTimer = 0;
+
+                        buttonLongPressed[b] = false;
+                        buttonPressedBefore[b] = false;
+                        buttonStatus[b] = BUTTON_RELEASED;
+                    }
+                }
+            }
+            else
+            {
+                buttonStatus[b] = BUTTON_RELEASED;
+            }
+        } // end of for (int b=0; b<WLED_MAX_BUTTONS; b++)
+    }
 
 
   /*---------------------------------------------------------------------------*/
@@ -1802,20 +1870,20 @@ public:
   }
 
 
-  /*---------------------------------------------------------------------------*/
-  // Retrieve last stored status for two buttons.
-  /*---------------------------------------------------------------------------*/
-  int getLastPolledTwoButtonStatus(uint8_t btn1, uint8_t btn2)
-  {
-      if (buttonStatus[btn1] == buttonStatus[btn2])
-      {
-          if (buttonStatus[btn1] != lastTwoButtonStatus)
-          {
-              lastTwoButtonStatus = buttonStatus[btn1];
-          }
-      }    
-      return lastTwoButtonStatus;
-  }
+    /*---------------------------------------------------------------------------*/
+    // Retrieve last stored status for two buttons.
+    /*---------------------------------------------------------------------------*/
+    int getLastPolledTwoButtonStatus(uint8_t btn1, uint8_t btn2)
+    {
+        if (buttonStatus[btn1] == buttonStatus[btn2])
+        {
+            if (buttonStatus[btn1] != lastTwoButtonStatus)
+            {
+                lastTwoButtonStatus = buttonStatus[btn1];
+            }
+        }
+        return lastTwoButtonStatus;
+    }
 #if !defined(BUILD_FOR_WOKWI)
 };
 #endif // BUILD_FOR_WOKWI
