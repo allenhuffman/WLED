@@ -34,6 +34,8 @@ int getLastPolledTwoButtonStatus(uint8_t btn1, uint8_t btn2);
 
 // TODO: Add the rest
 void turnBrakesOn(int);
+void turnRunningLightsOn(void);
+
 
 #endif // BUILD_FOR_WOKWI
 
@@ -539,7 +541,11 @@ public:
 
     void turnLeftBlinkerOff()
     {
-        blinkerState = BLINKERS_OFF;
+        if (blinkerState == BLINKERS_LEFT)
+        {
+            blinkerState = BLINKERS_OFF;
+        }
+
         turnOffLeftBlinkerTimer = 0; // shut off
         addPresetToQueue(presetTurnLeftOff);
     
@@ -557,7 +563,11 @@ public:
 
     void turnRightBlinkerOff()
     {
-        blinkerState = BLINKERS_OFF;
+        if (blinkerState == BLINKERS_RIGHT)
+        {
+            blinkerState = BLINKERS_OFF;
+        }
+
         turnOffRightBlinkerTimer = 0; // turn off
         addPresetToQueue(presetTurnRightOff);
 
@@ -636,6 +646,9 @@ public:
         {
             turnLeftAndRightBlinkersOff();
         }
+
+        // TODO: Do we need to do this here?
+        turnRunningLightsOn();
     }
 
     void turnReverseLightsOn()
@@ -1079,7 +1092,6 @@ public:
                 if (brakingState == BRAKES_5WIRE_ON)
                 {
                     turnBrakesOff();
-                    turnRunningLightsOn();
                 }
                 break;
 
