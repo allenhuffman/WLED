@@ -533,45 +533,46 @@ public:
     /*----------------------------------------------------------------------*/
     void turnLeftBlinkerOn()
     {
-        addPresetToQueue(turnLeftPreset);
         blinkerState = BLINKERS_LEFT;
+        addPresetToQueue(turnLeftPreset);
     }
 
     void turnLeftBlinkerOff()
     {
-        addPresetToQueue(presetTurnLeftOff);
-        turnOffLeftBlinkerTimer = 0; // shut off
         blinkerState = BLINKERS_OFF;
+        turnOffLeftBlinkerTimer = 0; // shut off
+        addPresetToQueue(presetTurnLeftOff);
     
-        if (brakingState != BRAKES_OFF)
-        {
-            turnBrakesOn(brakingState);
-        }    
+        // if (brakingState != BRAKES_OFF)
+        // {
+        //     turnBrakesOn(brakingState);
+        // }    
     }
 
     void turnRightBlinkerOn()
     {
-        addPresetToQueue(turnRightPreset);
         blinkerState = BLINKERS_RIGHT;
+        addPresetToQueue(turnRightPreset);
     }
 
     void turnRightBlinkerOff()
     {
-        addPresetToQueue(presetTurnRightOff);
-        turnOffRightBlinkerTimer = 0; // turn off
         blinkerState = BLINKERS_OFF;
+        turnOffRightBlinkerTimer = 0; // turn off
+        addPresetToQueue(presetTurnRightOff);
 
-        if (brakingState != BRAKES_OFF)
-        {
-            turnBrakesOn(brakingState);
-        }    
+        // if (brakingState != BRAKES_OFF)
+        // {
+        //     turnBrakesOn(brakingState);
+        // }    
     }
 
     void turnLeftAndRightBlinkersOff()
     {
-        addPresetToQueue(presetTurnBothOff);
+        blinkerState = BLINKERS_OFF;
         turnOffLeftBlinkerTimer = 0;
         turnOffRightBlinkerTimer = 0;
+        addPresetToQueue(presetTurnBothOff);
     }
 
     void turnHazardsOn()
@@ -582,9 +583,9 @@ public:
 
     void turnHazardsOff()
     {
-        addPresetToQueue(presetHazardOff);
-        turnOffHazardsTimer = 0; // turn off
         blinkerState = BLINKERS_OFF;
+        turnOffHazardsTimer = 0; // turn off
+        addPresetToQueue(presetHazardOff);
 
         // Turn brakes back on if they are on.
         if (brakingState != BRAKES_OFF)
@@ -596,7 +597,7 @@ public:
     void turnBrakesOn(int state)
     {
         // Ignore if we are in hazard mode.
-        if (blinkerState == BLINKERS_OFF)
+        //if (blinkerState == BLINKERS_OFF)
         {
 #if defined(BUILD_FOR_WOKWI)
             if (state == BRAKES_4WIRE_ON)
@@ -609,25 +610,40 @@ public:
             }
 #endif // WOKWI
 
-            addPresetToQueue(brakePreset);
+            blinkerState = BLINKERS_OFF;
+            turnOffLeftBlinkerTimer = 0;
+            turnOffRightBlinkerTimer = 0;
+            addPresetToQueue(brakePreset);            
         }
-        
+
         brakingState = state;
     }
 
     void turnBrakesOff()
     {
-        addPresetToQueue(presetBrakesOff);
         brakingState = BRAKES_OFF;
+
+        // TODO: do we EVER send brakes off?
+        if (blinkerState == BLINKERS_LEFT)
+        {
+            turnRightBlinkerOff();
+        }
+        else if (blinkerState == BLINKERS_RIGHT)
+        {
+            turnLeftBlinkerOff();
+        }
+        else
+        {
+            turnLeftAndRightBlinkersOff();
+        }
     }
 
     void turnReverseLightsOn()
     {
-        addPresetToQueue(reversePreset);
-
         // In case they were running...
         turnOffLeftBlinkerTimer = 0;
         turnOffRightBlinkerTimer = 0;
+        addPresetToQueue(reversePreset);
     }
 
     void turnReverseLightsOff()
@@ -773,6 +789,46 @@ public:
             }
         }
 
+        // Turn off things that need to be turned off.
+
+        if ((turnOffHazardsTimer != 0) && (millis() - turnOffHazardsTimer > hazardTimeMS))
+        {
+            turnOffHazardsTimer = 0;
+
+            turnHazardsOff();
+        }
+
+        if ((turnOffLeftBlinkerTimer != 0) && (millis() - turnOffLeftBlinkerTimer > turningTimeMS))
+        {
+            turnOffLeftBlinkerTimer = 0; // shut off
+
+            if (blinkerState == BLINKERS_LEFT)
+            {
+                turnLeftBlinkerOff();
+
+                if (brakingState != BRAKES_OFF)
+                {
+                    // Turn brakes back on if they are on.
+                    turnBrakesOn(brakingState);
+                }
+            }
+        }
+
+        if ((turnOffRightBlinkerTimer != 0) && (millis() - turnOffRightBlinkerTimer > turningTimeMS))
+        {
+            turnOffRightBlinkerTimer = 0;
+
+            if (blinkerState == BLINKERS_RIGHT)
+            {
+                turnRightBlinkerOff();
+
+                if (brakingState != BRAKES_OFF)
+                {
+                    // Turn brakes back on if they are on.
+                    turnBrakesOn(brakingState);
+                }
+            }
+        }
 
         /*--------------------------------------------------------------*/
         // Button 1 - Reverse
@@ -794,37 +850,36 @@ public:
         }
 
         /*----------------------------------------------------------*/
-        // Buttons (Left and Right) for 4-Wire Brake and Hazard mode.
+        // Buttons (Left+Right) for 4-Wire Brake and Hazard mode.
         /*----------------------------------------------------------*/
         switch (getLastPolledTwoButtonStatus(buttonTurnLeft, buttonTurnRight))
         {
             case BUTTON_RELEASED: // Both off
-                if (brakingState == BRAKES_4WIRE_ON)
-                {
-                    // We want to leave the running lights on,
-                    // so only turn off what we need to.
-                    switch (blinkerState)
-                    {
-                      case BLINKERS_OFF:
-                        // Left and Right
-                        addPresetToQueue(presetTurnBothOff);
-                        break;
-                      
-                      case BLINKERS_LEFT:
-                        // Right
-                        addPresetToQueue(presetTurnRightOff);
-                        break;
-                      
-                      case BLINKERS_RIGHT:
-                        // Left
-                        addPresetToQueue(presetTurnLeftOff);
-                        break;
-                    }
+                // if (brakingState == BRAKES_4WIRE_ON)
+                // {
+                //     DEBUG_PRINTLN ("there");
 
-                    brakingState = BRAKES_OFF;
+                //     brakingState = BRAKES_OFF;
 
-                    turnRunningLightsOn();
-                }
+                //     // We want to leave the running lights on,
+                //     // so only turn off what we need to.
+                //     switch (blinkerState)
+                //     {
+                //         case BLINKERS_OFF:
+                //             turnLeftAndRightBlinkersOff();
+                //             break;
+                        
+                //         case BLINKERS_LEFT:
+                //             turnRightBlinkerOff();
+                //             break;
+                        
+                //         case BLINKERS_RIGHT:
+                //             turnLeftBlinkerOff();
+                //             break;
+                //     }
+
+                //     turnRunningLightsOn();
+                // }
                 break;
             
             // We can't use BUTTON_PRESSED here since it would
@@ -852,17 +907,11 @@ public:
             default:
                 // Nothing do to here.
                 break;
-        }
-
-        //if (blinkerState == BLINKERS_HAZARD)
-        if ((turnOffHazardsTimer != 0) && (millis() - turnOffHazardsTimer > hazardTimeMS))
-        {
-            turnHazardsOff();
-        }
+        } // end of switch (getLastPolledTwoButtonStatus(buttonTurnLeft, buttonTurnRight))
 
         // Hazard takes priority, so we won't check turn signals
         // unless hazards are NOT on.
-        //if (blinkerState != BLINKERS_HAZARD)
+        if (blinkerState != BLINKERS_HAZARD)
         {
             // Hazards were not on.
 
@@ -874,22 +923,25 @@ public:
 
             switch (leftButtonStatus)
             {
-              case BUTTON_RELEASED:
+                case BUTTON_RELEASED:
+                    if ((brakingState == BRAKES_4WIRE_ON) &&
+                        (rightButtonStatus == BUTTON_RELEASED))
+                    {
+                        DEBUG_PRINT("l");
+                        turnBrakesOff();
+                    }
                     break;
 
-              case BUTTON_PRESSED:
-              case BUTTON_SHORT_PRESS:
+                case BUTTON_PRESSED:
+                case BUTTON_SHORT_PRESS:
                     // TODO: THIS IS THE ISSUE!
-                    // Only allow if other button is not braking.
                     if ((rightButtonStatus == BUTTON_RELEASED) ||
                         (rightButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        if (blinkerState == BLINKERS_RIGHT)
-                        {
-                            // Don't allow until blinker is done?
-                            break; // TEST
-                            turnRightBlinkerOff();
-                        }
+                        // if (blinkerState == BLINKERS_RIGHT)
+                        // {
+                        //     turnRightBlinkerOff();
+                        // }
 
                         if (blinkerState == BLINKERS_OFF)
                         {
@@ -904,33 +956,18 @@ public:
                     }
                     break;
               
-              // In case of braking while turning.
-              case BUTTON_LONG_PRESS:
+                // In case of braking while turning.
+                case BUTTON_LONG_PRESS: // Left saw long press
                     if (brakingState == BRAKES_OFF)
                     {
+                        DEBUG_PRINT("L");
                         turnBrakesOn(BRAKES_4WIRE_ON);
                     }
-                      break;
+                    break;
 
-              default:
+                default:
                     // Nothing do to here.
                     break;
-            }
-
-            if ((turnOffLeftBlinkerTimer != 0) && (millis() - turnOffLeftBlinkerTimer > turningTimeMS))
-            {
-                turnOffLeftBlinkerTimer = 0; // shut off
-
-                if (blinkerState == BLINKERS_LEFT)
-                {
-                    turnLeftBlinkerOff();
-
-                    if (brakingState != BRAKES_OFF)
-                    {
-                        // Turn brakes back on if they are on.
-                        turnBrakesOn(brakingState);
-                    }
-                }
             }
 
             /*----------------------------------------------------------*/
@@ -940,21 +977,24 @@ public:
             switch (rightButtonStatus)
             {
                 case BUTTON_RELEASED:
+                    if ((brakingState == BRAKES_4WIRE_ON) &&
+                        (leftButtonStatus == BUTTON_RELEASED))
+                    {
+                        DEBUG_PRINT("r");
+                        turnBrakesOff();
+                    }
                     break;
 
                 case BUTTON_PRESSED:
                 case BUTTON_SHORT_PRESS:
                     // TODO: THIS IS THE ISSUE!
-                    // Only allow if other button is not braking.
                     if ((leftButtonStatus == BUTTON_RELEASED) ||
                         (leftButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        if (blinkerState == BLINKERS_LEFT)
-                        {
-                            // Don't allow until blinker is done?
-                            break; // TEST
-                            turnLeftBlinkerOff();
-                        }
+                        // if (blinkerState == BLINKERS_RIGHT)
+                        // {
+                        //     turnLeftBlinkerOff();
+                        // }
 
                         if (blinkerState == BLINKERS_OFF)
                         {
@@ -969,66 +1009,52 @@ public:
                     }
                     break;
 
-              // In case of braking while turning.
-              case BUTTON_LONG_PRESS:
-                  if (brakingState == BRAKES_OFF)
-                  {
-                      turnBrakesOn(BRAKES_4WIRE_ON);
-                  }
-                  break;
-
-              default:
-                  // Nothing do to here.
-                  break;
-            }
-
-            if ((turnOffRightBlinkerTimer != 0) && (millis() - turnOffRightBlinkerTimer > turningTimeMS))
-            {
-                turnOffRightBlinkerTimer = 0;
-
-                if (blinkerState == BLINKERS_RIGHT)
-                {
-                    turnRightBlinkerOff();
-
-                    if (brakingState != BRAKES_OFF)
+                // In case of braking while turning.
+                case BUTTON_LONG_PRESS: // Right saw long press
+                    if (brakingState == BRAKES_OFF)
                     {
-                        // Turn brakes back on if they are on.
-                        turnBrakesOn(brakingState);
+                        DEBUG_PRINT("R");
+                        turnBrakesOn(BRAKES_4WIRE_ON);
                     }
-                }
+                    break;
+
+                default:
+                    // Nothing do to here.
+                    break;
             }
+        } // end of (blinkerState != BLINKERS_HAZARD)
 
-        } // end of else if turnOffHazardsTimer != 0
+        // REDUNDANT?
+        // if (brakingState == BRAKES_4WIRE_ON)
+        // {
+        //     // If neither is being held down, no longer braking.
+        //     if ((getLastPolledButtonStatus(buttonTurnLeft) != BUTTON_LONG_PRESS) &&
+        //         (getLastPolledButtonStatus(buttonTurnRight) != BUTTON_LONG_PRESS))
+        //     {
+        //         DEBUG_PRINTLN("here");
 
-        if (brakingState == BRAKES_4WIRE_ON)
-        {
-            if ((getLastPolledButtonStatus(buttonTurnLeft) == BUTTON_RELEASED) &&
-                (getLastPolledButtonStatus(buttonTurnRight) == BUTTON_RELEASED))
-            {
-                // We want to leave the running lights on,
-                // so only turn off what we need to.
-                switch (blinkerState)
-                {
-                    case BLINKERS_OFF:
-                        // Test
-                        //turnLeftAndRightBlinkersOff();
-                        break;
+        //         brakingState = BRAKES_OFF;
+
+        //         // We want to leave the running lights on,
+        //         // so only turn off what we need to.
+        //         switch (blinkerState)
+        //         {
+        //             case BLINKERS_OFF:
+        //                 turnLeftAndRightBlinkersOff();
+        //                 break;
                     
-                    case BLINKERS_LEFT:
-                        turnRightBlinkerOff();
-                        break;
+        //             case BLINKERS_LEFT:
+        //                 turnRightBlinkerOff();
+        //                 break;
                     
-                    case BLINKERS_RIGHT:
-                        turnLeftBlinkerOff();
-                        break;
-                }
+        //             case BLINKERS_RIGHT:
+        //                 turnLeftBlinkerOff();
+        //                 break;
+        //         }
 
-                brakingState = BRAKES_OFF;
-
-                turnRunningLightsOn();
-            }
-        }
-
+        //         turnRunningLightsOn();
+        //     }
+        // }
 
         /*----------------------------------------------------------*/
         // Button 5 - Brake (5-Wire)
@@ -1692,6 +1718,13 @@ public:
   /*---------------------------------------------------------------------------*/
   void pollButtons()
   {
+        // Read them all at the same time.
+        bool buttonPressedNow[WLED_MAX_BUTTONS];
+        for (int b = 0; b < WLED_MAX_BUTTONS; b++)
+        {
+            buttonPressedNow[b] = isButtonPressed(b);
+        }
+
       // Some logic copied from button.cpp
       unsigned long now = millis();
 
@@ -1700,7 +1733,7 @@ public:
           buttonStatus[b] = BUTTON_RELEASED;
 
           // momentary button logic
-          if (isButtonPressed(b)) // pressed
+          if (buttonPressedNow[b]) // pressed
           {
               if (!buttonPressedBefore[b])
               {
@@ -1724,7 +1757,7 @@ public:
                   buttonStatus[b] = BUTTON_LONG_PRESS;
               }
           }
-          else if (!isButtonPressed(b) && buttonPressedBefore[b])
+          else if (!buttonPressedNow[b] && buttonPressedBefore[b])
           {
               // released
               long dur = now - buttonPressedTime[b];
