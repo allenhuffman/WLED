@@ -4,6 +4,7 @@
 // 12-28-2022b
 // 12-28-2022c
 // 12-28-2022d
+// 12-28-2022e
 
 #pragma once
 
@@ -344,7 +345,7 @@ private:
     unsigned long turnOffRightBlinkerTimer = 0;
     unsigned long configTimer = 0;
     unsigned long turnOffHazardsTimer = 0;
-    unsigned long shortPressTimer = 0;
+    unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
 
     // State machine
     int state = STATE_POWERUP;
@@ -962,7 +963,6 @@ public:
                     if ((brakingState == BRAKES_4WIRE_ON) &&
                         (rightButtonStatus == BUTTON_RELEASED))
                     {
-                        DEBUG_PRINT("l");
                         turnBrakesOff();
                     }
                     break;
@@ -1004,7 +1004,6 @@ public:
                 case BUTTON_LONG_PRESS: // Left saw long press
                     if (brakingState == BRAKES_OFF)
                     {
-                        DEBUG_PRINT("L");
                         turnBrakesOn(BRAKES_4WIRE_ON);
                     }
                     break;
@@ -1024,7 +1023,6 @@ public:
                     if ((brakingState == BRAKES_4WIRE_ON) &&
                         (leftButtonStatus == BUTTON_RELEASED))
                     {
-                        DEBUG_PRINT("r");
                         turnBrakesOff();
                     }
                     break;
@@ -1066,7 +1064,6 @@ public:
                 case BUTTON_LONG_PRESS: // Right saw long press
                     if (brakingState == BRAKES_OFF)
                     {
-                        DEBUG_PRINT("R");
                         turnBrakesOn(BRAKES_4WIRE_ON);
                     }
                     break;
@@ -1821,7 +1818,7 @@ public:
                 if (dur < WLED_DEBOUNCE_THRESHOLD)
                 {
                     buttonPressedBefore[b] = false;
-                    buttonStatus[b] = BUTTON_RELEASED;
+                    // buttonStatus[b] = BUTTON_RELEASED;
                 }
                 else if (dur >= WLED_DEBOUNCE_THRESHOLD)
                 {
@@ -1830,33 +1827,32 @@ public:
                         if (buttonStatus[b] != BUTTON_SHORT_PRESS)
                         {
                             buttonStatus[b] = BUTTON_SHORT_PRESS;
-                            shortPressTimer = millis();
+                            shortPressTimer[b] = millis();
                         }
                     }
-                    else
-                    {
-                        buttonStatus[b] = BUTTON_RELEASED;
-                        buttonLongPressed[b] = false;
-                        buttonPressedBefore[b] = false;
-                    }
-
-                    // TODO: Clean this up.
-
-                    // Hold short press for some time...
-                    if ((shortPressTimer != 0) && (millis() - shortPressTimer > 50))
-                    {
-                        shortPressTimer = 0;
-
-                        buttonLongPressed[b] = false;
-                        buttonPressedBefore[b] = false;
-                        buttonStatus[b] = BUTTON_RELEASED;
-                    }
+                }
+                else // < WLED_DEBOUNCE_THRESHOLD
+                {
+                    buttonStatus[b] = BUTTON_RELEASED;
+                    buttonLongPressed[b] = false;
+                    buttonPressedBefore[b] = false;
                 }
             }
             else
             {
                 buttonStatus[b] = BUTTON_RELEASED;
             }
+
+            // Hold short press for some time...
+            if ((shortPressTimer[b] != 0) && (millis() - shortPressTimer[b] > 50))
+            {
+                shortPressTimer[b] = 0;
+
+                buttonLongPressed[b] = false;
+                buttonPressedBefore[b] = false;
+                buttonStatus[b] = BUTTON_RELEASED;
+            }
+
         } // end of for (int b=0; b<WLED_MAX_BUTTONS; b++)
     }
 
