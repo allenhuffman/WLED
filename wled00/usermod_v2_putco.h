@@ -110,9 +110,8 @@ void turnRunningLightsOn(void);
 
 // TIMING: Default timing values.
 #if defined(BUILD_FOR_WOKWI)
-// Shorter values
-#define DEFAULT_POWERUP_DELAY_MS            1000 // TODO!
-#define DEFAULT_STARTUP_TIME_MS             1000  // 4000 ms = 4 seconds
+#define DEFAULT_POWERUP_DELAY_MS            1000
+#define DEFAULT_STARTUP_TIME_MS             1000
 #else
 #define DEFAULT_POWERUP_DELAY_MS            5000 // TODO!
 #define DEFAULT_STARTUP_TIME_MS             4000  // 4000 ms = 4 seconds
@@ -351,6 +350,7 @@ private:
     unsigned long turnOffRightBlinkerTimer = 0;
     unsigned long configTimer = 0;
     unsigned long turnOffHazardsTimer = 0;
+    unsigned long turnOnBrakesTimer = 0;
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
 
     // State machine
@@ -840,6 +840,16 @@ public:
             turnHazardsOff();
         }
 
+        if ((turnOnBrakesTimer != 0) && (millis() - turnOnBrakesTimer > 500)) // TODO: hard-coded
+        {
+            turnOnBrakesTimer = 0;
+
+            if (brakingState != BRAKES_OFF)
+            {
+                turnBrakesOn(brakingState);
+            }
+        }
+
         if ((turnOffLeftBlinkerTimer != 0) && (millis() - turnOffLeftBlinkerTimer > turningTimeMS))
         {
             turnOffLeftBlinkerTimer = 0; // shut off
@@ -852,6 +862,7 @@ public:
                 {
                     // Turn brakes back on if they are on.
                     turnBrakesOn(brakingState);
+                    //turnOnBrakesTimer = millis();
                 }
             }
         }
@@ -868,6 +879,7 @@ public:
                 {
                     // Turn brakes back on if they are on.
                     turnBrakesOn(brakingState);
+                    //turnOnBrakesTimer = millis();
                 }
             }
         }
@@ -897,31 +909,6 @@ public:
         switch (getLastPolledTwoButtonStatus(buttonTurnLeft, buttonTurnRight))
         {
             case BUTTON_RELEASED: // Both off
-                // if (brakingState == BRAKES_4WIRE_ON)
-                // {
-                //     DEBUG_PRINTLN ("there");
-
-                //     brakingState = BRAKES_OFF;
-
-                //     // We want to leave the running lights on,
-                //     // so only turn off what we need to.
-                //     switch (blinkerState)
-                //     {
-                //         case BLINKERS_OFF:
-                //             turnLeftAndRightBlinkersOff();
-                //             break;
-                        
-                //         case BLINKERS_LEFT:
-                //             turnRightBlinkerOff();
-                //             break;
-                        
-                //         case BLINKERS_RIGHT:
-                //             turnLeftBlinkerOff();
-                //             break;
-                //     }
-
-                //     turnRunningLightsOn();
-                // }
                 break;
             
             // We can't use BUTTON_PRESSED here since it would
@@ -979,7 +966,7 @@ public:
                     if ((rightButtonStatus == BUTTON_RELEASED) ||
                         (rightButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        if (leftButtonCounter++ > 10)
+                        if (leftButtonCounter++ > 20)
                         {
                             // if (blinkerState == BLINKERS_RIGHT)
                             // {
@@ -1039,7 +1026,7 @@ public:
                     if ((leftButtonStatus == BUTTON_RELEASED) ||
                         (leftButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        if (rightButtonCounter++ > 10)
+                        if (rightButtonCounter++ > 20)
                         {
                             // if (blinkerState == BLINKERS_RIGHT)
                             // {
@@ -1790,6 +1777,9 @@ public:
             // momentary button logic
             if (buttonPressedNow[b]) // pressed
             {
+                // Stop any timer.
+                shortPressTimer[b] = 0;
+
                 if (!buttonPressedBefore[b])
                 {
                     buttonPressedBefore[b] = true;
@@ -1813,8 +1803,7 @@ public:
                 }
                 else
                 {
-                     buttonStatus[b] = BUTTON_RELEASED;
-                     shortPressTimer[b] = 0;
+                    buttonStatus[b] = BUTTON_RELEASED;
                 }
             }
             else if (!buttonPressedNow[b] && buttonPressedBefore[b])
@@ -1822,48 +1811,34 @@ public:
                 // released
                 long dur = now - buttonPressedTime[b];
 
-                if (dur < WLED_DEBOUNCE_THRESHOLD)
+                if ((dur < WLED_DEBOUNCE_THRESHOLD) || (buttonLongPressed[b]))
                 {
+                    // Not long enough, or releasing a long press.
+                    buttonLongPressed[b] = false;
                     buttonPressedBefore[b] = false;
                     buttonStatus[b] = BUTTON_RELEASED;
-                    shortPressTimer[b] = 0;
                 }
-                else if (dur >= WLED_DEBOUNCE_THRESHOLD)
+                else //if (dur >= WLED_DEBOUNCE_THRESHOLD)
                 {
-                    if (!buttonLongPressed[b]) // short press
+                    // At least debounce and not a long press.
+                    if (buttonStatus[b] != BUTTON_SHORT_PRESS)
                     {
-                        if (buttonStatus[b] != BUTTON_SHORT_PRESS)
-                        {
-                            buttonStatus[b] = BUTTON_SHORT_PRESS;
-                            shortPressTimer[b] = millis();
-                        }
+                        shortPressTimer[b] = millis();
                     }
-                    else
-                    {
-                        buttonStatus[b] = BUTTON_RELEASED;
-                        buttonLongPressed[b] = false;
-                        buttonPressedBefore[b] = false;
-                        shortPressTimer[b] = 0;
-                    }
-
-                    // TODO: Clean this up.
-
-                    // Hold short press for some time...
-                    if ((shortPressTimer[b] != 0) && (millis() - shortPressTimer[b] > 50))
-                    {
-                        shortPressTimer[b] = 0;
-
-                        buttonLongPressed[b] = false;
-                        buttonPressedBefore[b] = false;
-                        buttonStatus[b] = BUTTON_RELEASED;
-                    }
+                    buttonStatus[b] = BUTTON_SHORT_PRESS;
                 }
             }
-            else
+
+            // Hold short press for some time...
+            if ((shortPressTimer[b] != 0) && (millis() - shortPressTimer[b] > 50))
             {
-                buttonStatus[b] = BUTTON_RELEASED;
                 shortPressTimer[b] = 0;
+
+                buttonLongPressed[b] = false;
+                buttonPressedBefore[b] = false;
+                buttonStatus[b] = BUTTON_RELEASED;
             }
+
         } // end of for (int b=0; b<WLED_MAX_BUTTONS; b++)
     }
 
