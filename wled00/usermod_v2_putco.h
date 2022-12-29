@@ -109,8 +109,14 @@ void turnRunningLightsOn(void);
 #define DEFAULT_WORKBLADE_PRESET            DEFAULT_PRESET_WORKBLADE_FIRST
 
 // TIMING: Default timing values.
+#if defined(BUILD_FOR_WOKWI)
+// Shorter values
+#define DEFAULT_POWERUP_DELAY_MS            1000 // TODO!
+#define DEFAULT_STARTUP_TIME_MS             1000  // 4000 ms = 4 seconds
+#else
 #define DEFAULT_POWERUP_DELAY_MS            5000 // TODO!
 #define DEFAULT_STARTUP_TIME_MS             4000  // 4000 ms = 4 seconds
+#endif
 #define DEFAULT_CONFIG_TIME_MS              5000  // 5 seconds w/o input to choose
 #define DEFAULT_TURNING_TIME_MS             750   //500
 #define DEFAULT_HAZARD_TIME_MS              750   //500
@@ -1762,7 +1768,7 @@ public:
   }
 
 
-/*---------------------------------------------------------------------------*/
+    /*---------------------------------------------------------------------------*/
     // Scan all buttons and store status.
     /*---------------------------------------------------------------------------*/
     void pollButtons()
@@ -1808,6 +1814,7 @@ public:
                 else
                 {
                      buttonStatus[b] = BUTTON_RELEASED;
+                     shortPressTimer[b] = 0;
                 }
             }
             else if (!buttonPressedNow[b] && buttonPressedBefore[b])
@@ -1818,7 +1825,8 @@ public:
                 if (dur < WLED_DEBOUNCE_THRESHOLD)
                 {
                     buttonPressedBefore[b] = false;
-                    // buttonStatus[b] = BUTTON_RELEASED;
+                    buttonStatus[b] = BUTTON_RELEASED;
+                    shortPressTimer[b] = 0;
                 }
                 else if (dur >= WLED_DEBOUNCE_THRESHOLD)
                 {
@@ -1830,29 +1838,32 @@ public:
                             shortPressTimer[b] = millis();
                         }
                     }
-                }
-                else // < WLED_DEBOUNCE_THRESHOLD
-                {
-                    buttonStatus[b] = BUTTON_RELEASED;
-                    buttonLongPressed[b] = false;
-                    buttonPressedBefore[b] = false;
+                    else
+                    {
+                        buttonStatus[b] = BUTTON_RELEASED;
+                        buttonLongPressed[b] = false;
+                        buttonPressedBefore[b] = false;
+                        shortPressTimer[b] = 0;
+                    }
+
+                    // TODO: Clean this up.
+
+                    // Hold short press for some time...
+                    if ((shortPressTimer[b] != 0) && (millis() - shortPressTimer[b] > 50))
+                    {
+                        shortPressTimer[b] = 0;
+
+                        buttonLongPressed[b] = false;
+                        buttonPressedBefore[b] = false;
+                        buttonStatus[b] = BUTTON_RELEASED;
+                    }
                 }
             }
             else
             {
                 buttonStatus[b] = BUTTON_RELEASED;
-            }
-
-            // Hold short press for some time...
-            if ((shortPressTimer[b] != 0) && (millis() - shortPressTimer[b] > 50))
-            {
                 shortPressTimer[b] = 0;
-
-                buttonLongPressed[b] = false;
-                buttonPressedBefore[b] = false;
-                buttonStatus[b] = BUTTON_RELEASED;
             }
-
         } // end of for (int b=0; b<WLED_MAX_BUTTONS; b++)
     }
 
