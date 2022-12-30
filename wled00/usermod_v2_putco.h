@@ -909,6 +909,11 @@ public:
         switch (getLastPolledTwoButtonStatus(buttonTurnLeft, buttonTurnRight))
         {
             case BUTTON_RELEASED: // Both off
+                // HACK for Walter.
+                if (blinkerState == BLINKERS_HAZARD)
+                {
+                    turnLeftAndRightBlinkersOff();
+                }
                 break;
             
             // We can't use BUTTON_PRESSED here since it would
@@ -957,6 +962,11 @@ public:
                         (rightButtonStatus == BUTTON_RELEASED))
                     {
                         turnBrakesOff();
+                    }
+                    // HACK for Walter.
+                    if (blinkerState == BLINKERS_LEFT)
+                    {
+                        turnLeftBlinkerOff();
                     }
                     break;
 
@@ -1017,6 +1027,11 @@ public:
                         (leftButtonStatus == BUTTON_RELEASED))
                     {
                         turnBrakesOff();
+                    }
+                    // HACK for Walter.
+                    if (blinkerState == BLINKERS_RIGHT)
+                    {
+                        turnRightBlinkerOff();
                     }
                     break;
 
