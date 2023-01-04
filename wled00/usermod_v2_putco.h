@@ -987,9 +987,17 @@ public:
                     }
                     break;
 
-                case BUTTON_PRESSED:
-                case BUTTON_SHORT_PRESS:
-                    // TODO: THIS IS THE ISSUE!
+                case BUTTON_PRESSED: // left pressed
+                case BUTTON_SHORT_PRESS: // or left being held down
+                    if ((rightButtonStatus == BUTTON_PRESSED) ||
+                        (rightButtonStatus == BUTTON_SHORT_PRESS))
+                    {
+                        if (brakingState != BRAKES_OFF)
+                        {
+                            turnBrakesOn(BRAKES_4WIRE_ON);    
+                        }
+                    }
+                    else
                     if ((rightButtonStatus == BUTTON_RELEASED) ||
                         (rightButtonStatus == BUTTON_LONG_PRESS))
                     {
@@ -1061,9 +1069,17 @@ public:
                     }
                     break;
 
-                case BUTTON_PRESSED:
-                case BUTTON_SHORT_PRESS:
-                    // TODO: THIS IS THE ISSUE!
+                case BUTTON_PRESSED: // right pressed
+                case BUTTON_SHORT_PRESS: // or right being held down
+                    if ((leftButtonStatus == BUTTON_PRESSED) ||
+                        (leftButtonStatus == BUTTON_SHORT_PRESS))
+                    {
+                        if (brakingState != BRAKES_OFF)
+                        {
+                            turnBrakesOn(BRAKES_4WIRE_ON);    
+                        }
+                    }
+                    else
                     if ((leftButtonStatus == BUTTON_RELEASED) ||
                         (leftButtonStatus == BUTTON_LONG_PRESS))
                     {
