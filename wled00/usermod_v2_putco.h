@@ -608,12 +608,15 @@ public:
     {
         blinkerState = BLINKERS_OFF;
         turnOffHazardsTimer = 0; // turn off
-        addPresetToQueue(presetHazardOff);
 
         // Turn brakes back on if they are on.
         if (brakingState != BRAKES_OFF)
         {
             turnBrakesOn(brakingState);
+        }
+        else
+        {
+            addPresetToQueue(presetHazardOff);
         }
     }
 
@@ -937,11 +940,18 @@ public:
                 break;
 
             case BUTTON_LONG_PRESS: // Both saw long press
-                if ((brakingState == BRAKES_OFF) &&
-                   (blinkerState != BLINKERS_HAZARD))
+                if (brakingState == BRAKES_OFF)
                 {
-                    DEBUG_PRINT("d");
-                    turnBrakesOn(BRAKES_4WIRE_ON);
+                    if (blinkerState != BLINKERS_HAZARD)
+                    {
+                        DEBUG_PRINT("e");
+                        turnBrakesOn(BRAKES_4WIRE_ON);
+                    }
+                    else
+                    {
+                        // Flag so they turn on when hazards end.
+                        brakingState = BRAKES_4WIRE_ON;
+                    }
                 }
                 break;
             
@@ -1014,8 +1024,16 @@ public:
                 case BUTTON_LONG_PRESS: // Left saw long press
                     if (brakingState == BRAKES_OFF)
                     {
-                        DEBUG_PRINT("e");
-                        turnBrakesOn(BRAKES_4WIRE_ON);
+                        if (blinkerState != BLINKERS_HAZARD)
+                        {
+                            DEBUG_PRINT("?");
+                            turnBrakesOn(BRAKES_4WIRE_ON);
+                        }
+                        else
+                        {
+                            // Flag so they turn on when hazards end.
+                            brakingState = BRAKES_4WIRE_ON;
+                        }
                     }
                     break;
 
@@ -1080,8 +1098,16 @@ public:
                 case BUTTON_LONG_PRESS: // Right saw long press
                     if (brakingState == BRAKES_OFF)
                     {
-                        DEBUG_PRINT("f");
-                        turnBrakesOn(BRAKES_4WIRE_ON);
+                        if (blinkerState != BLINKERS_HAZARD)
+                        {
+                            DEBUG_PRINT("f");
+                            turnBrakesOn(BRAKES_4WIRE_ON);
+                        }
+                        else
+                        {
+                            // Flag so they turn on when hazards end.
+                            brakingState = BRAKES_4WIRE_ON;
+                        }
                     }
                     break;
 
