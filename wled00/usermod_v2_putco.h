@@ -5,6 +5,9 @@
 // 12-28-2022c
 // 12-28-2022d
 // 12-28-2022e
+/*
+TODO: add the configs for right brake off, left brake off. Make debounce adjustable in config. Make long press adjustable in config.
+*/
 
 #pragma once
 
@@ -992,9 +995,9 @@ public:
                     if ((rightButtonStatus == BUTTON_PRESSED) ||
                         (rightButtonStatus == BUTTON_SHORT_PRESS))
                     {
-                        if (brakingState != BRAKES_OFF)
+                        if (blinkerState != BLINKERS_HAZARD)
                         {
-                            turnBrakesOn(BRAKES_4WIRE_ON);    
+                            turnHazardsOn();
                         }
                     }
                     else
@@ -1074,9 +1077,9 @@ public:
                     if ((leftButtonStatus == BUTTON_PRESSED) ||
                         (leftButtonStatus == BUTTON_SHORT_PRESS))
                     {
-                        if (brakingState != BRAKES_OFF)
+                        if (blinkerState != BLINKERS_HAZARD)
                         {
-                            turnBrakesOn(BRAKES_4WIRE_ON);    
+                            turnHazardsOn();
                         }
                     }
                     else
