@@ -927,21 +927,6 @@ public:
                 }
                 break;
             
-            // We can't use BUTTON_PRESSED here since it would
-            // activate and override a long press for brakes.
-            case BUTTON_PRESSED:
-            case BUTTON_SHORT_PRESS: // Both saw short press
-                if (blinkerState != BLINKERS_HAZARD)
-                {
-                    turnHazardsOn();
-                }
-
-                if (blinkerState == BLINKERS_HAZARD)
-                {
-                    turnOffHazardsTimer = millis();
-                }
-                break;
-
             case BUTTON_LONG_PRESS: // Both saw long press
                 if (brakingState == BRAKES_OFF)
                 {
@@ -958,6 +943,26 @@ public:
                 }
                 break;
             
+            // We can't use BUTTON_PRESSED here since it would
+            // activate and override a long press for brakes.
+            case BUTTON_PRESSED:
+            case BUTTON_SHORT_PRESS: // Both saw short press
+                if (blinkerState != BLINKERS_HAZARD)
+                {
+                    DEBUG_PRINT("(");
+                    DEBUG_PRINT(getLastPolledTwoButtonStatus(buttonTurnLeft, buttonTurnRight));
+                    DEBUG_PRINT(")");
+
+                    DEBUG_PRINT("$");
+                    turnHazardsOn();
+                }
+
+                if (blinkerState == BLINKERS_HAZARD)
+                {
+                    turnOffHazardsTimer = millis();
+                }
+                break;
+
             default:
                 // Nothing do to here.
                 break;
@@ -965,7 +970,7 @@ public:
 
         // Hazard takes priority, so we won't check turn signals
         // unless hazards are NOT on.
-        if (blinkerState != BLINKERS_HAZARD)
+        //if (blinkerState != BLINKERS_HAZARD)
         {
             // Hazards were not on.
 
@@ -1043,7 +1048,9 @@ public:
                         else
                         {
                             // Flag so they turn on when hazards end.
+                            DEBUG_PRINT("1");
                             brakingState = BRAKES_4WIRE_ON;
+                            turnHazardsOff();
                         }
                     }
                     break;
@@ -1125,7 +1132,9 @@ public:
                         else
                         {
                             // Flag so they turn on when hazards end.
+                            DEBUG_PRINT("2");
                             brakingState = BRAKES_4WIRE_ON;
+                            turnHazardsOff();
                         }
                     }
                     break;
@@ -1932,8 +1941,13 @@ public:
             {
                 lastTwoButtonStatus = buttonStatus[btn1];
             }
+            return lastTwoButtonStatus;
         }
-        return lastTwoButtonStatus;
+        else
+        {
+            return 42;
+        }
+        //return lastTwoButtonStatus;
     }
 #if !defined(BUILD_FOR_WOKWI)
 };
