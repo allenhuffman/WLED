@@ -1334,6 +1334,7 @@ public:
                     configPresetEnd = presetTurnLeftLast;
                     configPreset = turnLeftPreset;
 
+                    addPresetToQueue(presetAllOff);
                     addPresetToQueue(configPreset);
                     configTimer = millis();
                 }
