@@ -66,7 +66,10 @@ void turnRunningLightsOn(void);
 #define DEFAULT_PRESET_ALL_OFF              9
 
 #define DEFAULT_PRESET_BRAKE_FIRST          10
-#define DEFAULT_PRESET_BRAKE_LAST           10
+#define DEFAULT_PRESET_BRAKE_LAST           10 // Not used.
+#define DEFAULT_PRESET_BRAKE_LEFT           11
+#define DEFAULT_PRESET_BRAKE_RIGHT          12
+
 #define DEFAULT_PRESET_BRAKES_OFF           1
 
 #define DEFAULT_PRESET_REVERSE_FIRST        20
@@ -122,8 +125,10 @@ void turnRunningLightsOn(void);
 #define DEFAULT_CONFIG_TIME_MS              5000  // 5 seconds w/o input to choose
 #define DEFAULT_TURNING_TIME_MS             750   //500
 #define DEFAULT_HAZARD_TIME_MS              750   //500
-#define DEFAULT_LONG_PRESS_TIME_MS          600
 
+// Button timing
+#define DEFAULT_DEBOUNCE_TIME_MS            50  // only consider button input of at least 50ms as valid (debouncing)
+#define DEFAULT_LONG_PRESS_TIME_MS          600 // long press if button is released after held for at least 600ms
 
 // INPUTS: Mapped to the Button 0-X of WLED.
 #define DEFAULT_BUTTON_RUNNING              0
@@ -175,6 +180,8 @@ void turnRunningLightsOn(void);
 
 #define CFG_JSON_PRESET_BRAKE_FIRST         "presetBrakeFirst"
 #define CFG_JSON_PRESET_BRAKE_LAST          "presetBrakeLast"
+#define CFG_JSON_PRESET_BRAKE_LEFT          "presetBrakeLeft"
+#define CFG_JSON_PRESET_BRAKE_RIGHT         "presetBrakeRight"
 #define CFG_JSON_PRESET_BRAKES_OFF          "presetBrakesOff"
 
 #define CFG_JSON_PRESET_REVERSE_FIRST       "presetReverseFirst"
@@ -213,7 +220,10 @@ void turnRunningLightsOn(void);
 #define CFG_JSON_CONFIG_TIME_MS             "configTimeMS"
 #define CFG_JSON_TURNING_TIME_MS            "turningTimeMS"
 #define CFG_JSON_HAZARD_TIME_MS             "hazardTimeMS"
+
+// Button timing
 #define CFG_JSON_LONG_PRESS_TIME_MS         "longPressTimeMS"
+#define CFG_JSON_DEBOUNCE_TIME_MS           "debounceTimeMS"
 
 
 /*--------------------------------------------------------------------------*/
@@ -249,10 +259,6 @@ void turnRunningLightsOn(void);
 /*--------------------------------------------------------------------------*/
 // Other stuff for the code to work.
 /*--------------------------------------------------------------------------*/
-
-// Cloned from button.cpp:
-#define WLED_DEBOUNCE_THRESHOLD 50 // only consider button input of at least 50ms as valid (debouncing)
-#define WLED_LONG_PRESS         600 // long press if button is released after held for at least 600ms
 
 // Button routine:
 #define BUTTON_RELEASED         0
@@ -304,6 +310,8 @@ private:
     int presetBrakeFirst = DEFAULT_PRESET_BRAKE_FIRST;
     int presetBrakeLast = DEFAULT_PRESET_BRAKE_LAST;
     int presetBrakesOff = DEFAULT_PRESET_BRAKES_OFF;
+    int presetBrakeLeft = DEFAULT_PRESET_BRAKE_LEFT;
+    int presetBrakeRight = DEFAULT_PRESET_BRAKE_RIGHT;
 
     int presetReverseFirst = DEFAULT_PRESET_REVERSE_FIRST;
     int presetReverseLast = DEFAULT_PRESET_REVERSE_LAST;
@@ -341,7 +349,11 @@ private:
     int configTimeMS = DEFAULT_CONFIG_TIME_MS;
     int turningTimeMS = DEFAULT_TURNING_TIME_MS;
     int hazardTimeMS = DEFAULT_HAZARD_TIME_MS;
+
+    // Button times
+    int debounceTimeMS = DEFAULT_DEBOUNCE_TIME_MS;
     int longPressTimeMS = DEFAULT_LONG_PRESS_TIME_MS;
+
 
     /*----------------------------------------------------------------------*/
     // Program varialbes (not part of the cfg.json stuff).
@@ -354,6 +366,9 @@ private:
     unsigned long configTimer = 0;
     unsigned long turnOffHazardsTimer = 0;
     unsigned long turnOnBrakesTimer = 0;
+    unsigned long turnOnLeftBrakeTimer = 0;
+    unsigned long turnOnRightBrakeTimer = 0;
+
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
 
     // State machine
@@ -553,6 +568,7 @@ public:
     {
         blinkerState = BLINKERS_LEFT;
         addPresetToQueue(turnLeftPreset);
+        turnOnLeftBrakeTimer = 0; // cancel
     }
 
     void turnLeftBlinkerOff()
@@ -565,16 +581,18 @@ public:
         turnOffLeftBlinkerTimer = 0; // shut off
         addPresetToQueue(presetTurnLeftOff);
     
-        // if (brakingState != BRAKES_OFF)
-        // {
-        //     turnBrakesOn(brakingState);
-        // }    
+        if (brakingState != BRAKES_OFF)
+        {
+            // Turn left brake back on in 500ms.
+            turnOnLeftBrakeTimer = millis();
+        }
     }
 
     void turnRightBlinkerOn()
     {
         blinkerState = BLINKERS_RIGHT;
         addPresetToQueue(turnRightPreset);
+        turnOnRightBrakeTimer = 0; // cancel
     }
 
     void turnRightBlinkerOff()
@@ -587,10 +605,11 @@ public:
         turnOffRightBlinkerTimer = 0; // turn off
         addPresetToQueue(presetTurnRightOff);
 
-        // if (brakingState != BRAKES_OFF)
-        // {
-        //     turnBrakesOn(brakingState);
-        // }    
+        if (brakingState != BRAKES_OFF)
+        {
+            // Turn bright rake back on in 500ms.
+            turnOnRightBrakeTimer = millis();
+        }
     }
 
     void turnLeftAndRightBlinkersOff()
@@ -605,6 +624,10 @@ public:
     {
         blinkerState = BLINKERS_HAZARD;
         addPresetToQueue(hazardPreset);
+
+        turnOnBrakesTimer = 0; // cancel
+        turnOnLeftBrakeTimer = 0; // cancel
+        turnOnRightBrakeTimer = 0; // cancel
     }
 
     void turnHazardsOff()
@@ -639,20 +662,22 @@ public:
             }
 #endif // WOKWI
 
-            // blinkerState = BLINKERS_OFF;
-            // turnOffLeftBlinkerTimer = 0;
-            // turnOffRightBlinkerTimer = 0;
-            addPresetToQueue(brakePreset);
-
+            if (blinkerState == BLINKERS_OFF)
+            {
+                addPresetToQueue(brakePreset);
+            }
             if (blinkerState == BLINKERS_LEFT)
             {
-                addPresetToQueue(turnLeftPreset);
+                addPresetToQueue(presetBrakeRight);
             }
             else if (blinkerState == BLINKERS_RIGHT)
             {
-                addPresetToQueue(turnRightPreset);
+                addPresetToQueue(presetBrakeLeft);
             }
-            // #error TODO
+            else
+            {
+                // Hazards. Do nothing.
+            }
         }
 
         brakingState = state;
@@ -665,19 +690,16 @@ public:
         // TODO: do we EVER send brakes off?
         if (blinkerState == BLINKERS_LEFT)
         {
-            //turnRightBlinkerOff();
             // Turn off right blinker segment.
             addPresetToQueue(presetTurnRightOff);
         }
         else if (blinkerState == BLINKERS_RIGHT)
         {
-            //turnLeftBlinkerOff();
             // Turn off left blinker segment.
             addPresetToQueue(presetTurnLeftOff);
         }
         else
         {
-            //turnLeftAndRightBlinkersOff();
             // Turn off both blinker segments.
             addPresetToQueue(presetTurnBothOff);
         }
@@ -852,10 +874,31 @@ public:
 
             if (brakingState != BRAKES_OFF)
             {
-                DEBUG_PRINT("a");
-                turnBrakesOn(brakingState);
+                //turnBrakesOn(brakingState);
+                addPresetToQueue(brakePreset);
             }
         }
+
+        if ((turnOnLeftBrakeTimer != 0) && (millis() - turnOnLeftBrakeTimer > 500)) // TODO: hard-coded
+        {
+            turnOnLeftBrakeTimer = 0;
+
+            if (brakingState != BRAKES_OFF)
+            {
+                addPresetToQueue(presetBrakeLeft);
+            }
+        }
+
+        if ((turnOnRightBrakeTimer != 0) && (millis() - turnOnRightBrakeTimer > 500)) // TODO: hard-coded
+        {
+            turnOnRightBrakeTimer = 0;
+
+            if (brakingState != BRAKES_OFF)
+            {
+                addPresetToQueue(presetBrakeRight);
+            }
+        }
+
 
         if ((turnOffLeftBlinkerTimer != 0) && (millis() - turnOffLeftBlinkerTimer > turningTimeMS))
         {
@@ -864,14 +907,6 @@ public:
             if (blinkerState == BLINKERS_LEFT)
             {
                 turnLeftBlinkerOff();
-
-                if (brakingState != BRAKES_OFF)
-                {
-                    DEBUG_PRINT("b");
-                    // Turn brakes back on if they are on.
-                    turnBrakesOn(brakingState);
-                    //turnOnBrakesTimer = millis();
-                }
             }
         }
 
@@ -882,14 +917,6 @@ public:
             if (blinkerState == BLINKERS_RIGHT)
             {
                 turnRightBlinkerOff();
-
-                if (brakingState != BRAKES_OFF)
-                {
-                    DEBUG_PRINT("c");
-                    // Turn brakes back on if they are on.
-                    turnBrakesOn(brakingState);
-                    //turnOnBrakesTimer = millis();
-                }
             }
         }
 
@@ -1144,38 +1171,6 @@ public:
                     break;
             }
         } // end of (blinkerState != BLINKERS_HAZARD)
-
-        // REDUNDANT?
-        // if (brakingState == BRAKES_4WIRE_ON)
-        // {
-        //     // If neither is being held down, no longer braking.
-        //     if ((getLastPolledButtonStatus(buttonTurnLeft) != BUTTON_LONG_PRESS) &&
-        //         (getLastPolledButtonStatus(buttonTurnRight) != BUTTON_LONG_PRESS))
-        //     {
-        //         DEBUG_PRINTLN("here");
-
-        //         brakingState = BRAKES_OFF;
-
-        //         // We want to leave the running lights on,
-        //         // so only turn off what we need to.
-        //         switch (blinkerState)
-        //         {
-        //             case BLINKERS_OFF:
-        //                 turnLeftAndRightBlinkersOff();
-        //                 break;
-                    
-        //             case BLINKERS_LEFT:
-        //                 turnRightBlinkerOff();
-        //                 break;
-                    
-        //             case BLINKERS_RIGHT:
-        //                 turnLeftBlinkerOff();
-        //                 break;
-        //         }
-
-        //         turnRunningLightsOn();
-        //     }
-        // }
 
         /*----------------------------------------------------------*/
         // Button 5 - Brake (5-Wire)
@@ -1445,6 +1440,10 @@ public:
         if (presetQueueCount < PRESET_QUEUE_SIZE)
         {
             DEBUG_PRINT("[");
+            if (preset < 10)
+            {
+                DEBUG_PRINT(" ");
+            }
             DEBUG_PRINT(preset);
             DEBUG_PRINT("] ");
             presetQueue[presetQueueNextIn] = preset;
@@ -1599,6 +1598,8 @@ public:
 
         top[CFG_JSON_PRESET_BRAKE_FIRST] = presetBrakeFirst;
         top[CFG_JSON_PRESET_BRAKE_LAST] = presetBrakeLast;
+        top[CFG_JSON_PRESET_BRAKE_LEFT] = presetBrakeLeft;
+        top[CFG_JSON_PRESET_BRAKE_RIGHT] = presetBrakeRight;
         top[CFG_JSON_PRESET_BRAKES_OFF] = presetBrakesOff;
 
         top[CFG_JSON_PRESET_REVERSE_FIRST] = presetReverseFirst;
@@ -1637,6 +1638,9 @@ public:
         top[CFG_JSON_CONFIG_TIME_MS] = configTimeMS;
         top[CFG_JSON_TURNING_TIME_MS] = turningTimeMS;
         top[CFG_JSON_HAZARD_TIME_MS] = hazardTimeMS;
+
+        // Button times
+        top[CFG_JSON_DEBOUNCE_TIME_MS] = debounceTimeMS;
         top[CFG_JSON_LONG_PRESS_TIME_MS] = longPressTimeMS;
 
         // JsonArray presetArray = top.createNestedArray("presets");
@@ -1700,6 +1704,8 @@ public:
 
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_FIRST], presetBrakeFirst, DEFAULT_PRESET_BRAKE_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_LAST], presetBrakeLast, DEFAULT_PRESET_BRAKE_LAST);
+        configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_LEFT], presetBrakeLeft, DEFAULT_PRESET_BRAKE_LEFT);
+        configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_RIGHT], presetBrakeRight, DEFAULT_PRESET_BRAKE_RIGHT);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKES_OFF], presetBrakesOff, DEFAULT_PRESET_BRAKES_OFF);
 
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_REVERSE_FIRST], presetReverseFirst, DEFAULT_PRESET_REVERSE_FIRST);
@@ -1738,6 +1744,9 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_CONFIG_TIME_MS], configTimeMS, DEFAULT_CONFIG_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_TURNING_TIME_MS], turningTimeMS, DEFAULT_TURNING_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_HAZARD_TIME_MS], hazardTimeMS, DEFAULT_HAZARD_TIME_MS);
+
+        // Button times
+        configComplete &= getJsonValue(top[CFG_JSON_DEBOUNCE_TIME_MS], debounceTimeMS, DEFAULT_DEBOUNCE_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_LONG_PRESS_TIME_MS], longPressTimeMS, DEFAULT_LONG_PRESS_TIME_MS);
 
         // Correct any bad values.
@@ -1867,7 +1876,7 @@ public:
 
                 long dur = now - buttonPressedTime[b];
 
-                if (dur > WLED_LONG_PRESS) // long press
+                if (dur > longPressTimeMS) // long press
                 {
                     if (!buttonLongPressed[b])
                     {
@@ -1876,7 +1885,7 @@ public:
 
                     buttonStatus[b] = BUTTON_LONG_PRESS;
                 }
-                else if (dur > WLED_DEBOUNCE_THRESHOLD)
+                else if (dur > debounceTimeMS)
                 {
                     buttonStatus[b] = BUTTON_PRESSED;
                 }
@@ -1890,14 +1899,14 @@ public:
                 // released
                 long dur = now - buttonPressedTime[b];
 
-                if ((dur < WLED_DEBOUNCE_THRESHOLD) || (buttonLongPressed[b]))
+                if ((dur < debounceTimeMS) || (buttonLongPressed[b]))
                 {
                     // Not long enough, or releasing a long press.
                     buttonLongPressed[b] = false;
                     buttonPressedBefore[b] = false;
                     buttonStatus[b] = BUTTON_RELEASED;
                 }
-                else //if (dur >= WLED_DEBOUNCE_THRESHOLD)
+                else //if (dur >= debounceTimeMS)
                 {
                     // At least debounce and not a long press.
                     if (buttonStatus[b] != BUTTON_SHORT_PRESS)
