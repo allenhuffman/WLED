@@ -138,6 +138,10 @@ void turnRunningLightsOn(void);
 #define DEFAULT_BUTTON_BRAKE                4
 #define DEFAULT_BUTTON_TAP_WIRE             5
 
+// Preset queue timing
+#define DEFAULT_PRESET_QUEUE_TIME_MS        50 // may need to be longer.
+#define DEFAULT_PRESET_QUEUE_SIZE           10
+
 
 /*--------------------------------------------------------------------------*/
 // Stuff you probably shouldn't change...
@@ -224,6 +228,9 @@ void turnRunningLightsOn(void);
 // Button timing
 #define CFG_JSON_LONG_PRESS_TIME_MS         "longPressTimeMS"
 #define CFG_JSON_DEBOUNCE_TIME_MS           "debounceTimeMS"
+
+// Preset queue timing
+#define CFG_JSON_PRESET_QUEUE_TIME_MS       "presetQueueTimeMS"
 
 
 /*--------------------------------------------------------------------------*/
@@ -354,6 +361,8 @@ private:
     int debounceTimeMS = DEFAULT_DEBOUNCE_TIME_MS;
     int longPressTimeMS = DEFAULT_LONG_PRESS_TIME_MS;
 
+    // Preset queue time
+    int presetQueueTimeMS = DEFAULT_PRESET_QUEUE_TIME_MS;
 
     /*----------------------------------------------------------------------*/
     // Program varialbes (not part of the cfg.json stuff).
@@ -394,17 +403,15 @@ private:
     // Preset queue
     // WLED presets are asynchronous, so you cannot gaurantee they happen
     // when you think they do.
-    #define PRESET_QUEUE_TIME_MS  50 // may need to be longer.
-    #define PRESET_QUEUE_SIZE     10
     int presetQueueCount = 0;
     int presetQueueNextIn = 0;
     int presetQueueNextOut = 0;
     unsigned long presetQueueTimer = 0;
 
 #if !defined(BUILD_FOR_WOKWI)
-    int presetQueue[PRESET_QUEUE_SIZE] _INIT({0});
+    int presetQueue[DEFAULT_PRESET_QUEUE_SIZE] _INIT({0});
 #else
-    int presetQueue[PRESET_QUEUE_SIZE] = { 0,0,0,0,0,0,0,0,0,0 };
+    int presetQueue[DEFAULT_PRESET_QUEUE_SIZE] = { 0,0,0,0,0,0,0,0,0,0 };
 #endif
 
 #if !defined(BUILD_FOR_WOKWI)
@@ -1422,7 +1429,7 @@ public:
     void handlePresetQueue(void)
     {
         // If timer has expired, apply any pending preset.
-        if ((presetQueueTimer != 0) && (millis() - presetQueueTimer > PRESET_QUEUE_TIME_MS))
+        if ((presetQueueTimer != 0) && (millis() - presetQueueTimer > presetQueueTimeMS))
         {
             int preset = getPresetFromQueue();
 
@@ -1437,7 +1444,7 @@ public:
 
     void addPresetToQueue(int preset)
     {
-        if (presetQueueCount < PRESET_QUEUE_SIZE)
+        if (presetQueueCount < DEFAULT_PRESET_QUEUE_SIZE)
         {
             DEBUG_PRINT("[");
             if (preset < 10)
@@ -1449,7 +1456,7 @@ public:
             presetQueue[presetQueueNextIn] = preset;
             presetQueueCount++;
             presetQueueNextIn++;
-            if (presetQueueNextIn >= PRESET_QUEUE_SIZE)
+            if (presetQueueNextIn >= DEFAULT_PRESET_QUEUE_SIZE)
             {
                 presetQueueNextIn = 0;
             }
@@ -1471,7 +1478,7 @@ public:
             preset = presetQueue[presetQueueNextOut];
             presetQueueCount--;
             presetQueueNextOut++;
-            if (presetQueueNextOut >= PRESET_QUEUE_SIZE)
+            if (presetQueueNextOut >= DEFAULT_PRESET_QUEUE_SIZE)
             {
                 presetQueueNextOut = 0;
             }
@@ -1643,6 +1650,9 @@ public:
         top[CFG_JSON_DEBOUNCE_TIME_MS] = debounceTimeMS;
         top[CFG_JSON_LONG_PRESS_TIME_MS] = longPressTimeMS;
 
+        // Preset queue timing
+        top[CFG_JSON_PRESET_QUEUE_TIME_MS] = presetQueueTimeMS;
+
         // JsonArray presetArray = top.createNestedArray("presets");
         // pinArray.add(testPins[0]);
         // pinArray.add(testPins[1]);
@@ -1748,6 +1758,9 @@ public:
         // Button times
         configComplete &= getJsonValue(top[CFG_JSON_DEBOUNCE_TIME_MS], debounceTimeMS, DEFAULT_DEBOUNCE_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_LONG_PRESS_TIME_MS], longPressTimeMS, DEFAULT_LONG_PRESS_TIME_MS);
+
+        // Preset queue time
+        configComplete &= getJsonValue(top[CFG_JSON_PRESET_QUEUE_TIME_MS], presetQueueTimeMS, DEFAULT_PRESET_QUEUE_TIME_MS);
 
         // Correct any bad values.
         if ((brakePreset < presetBrakeFirst) || (brakePreset > presetBrakeLast))
