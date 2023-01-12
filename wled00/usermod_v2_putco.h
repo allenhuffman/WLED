@@ -688,12 +688,12 @@ public:
                 if (brakePreset == presetBrakePulse)
                 {
                     // Start timer to know when to transition to normal brakes.
-                    brakePulseTimer = brakePulseTimeMS;
+                    brakePulseTimer = millis();
                 }
 
                 addPresetToQueue(brakePreset);
             }
-            if (blinkerState == BLINKERS_LEFT)
+            else if (blinkerState == BLINKERS_LEFT)
             {
                 addPresetToQueue(presetBrakeRight);
             }
