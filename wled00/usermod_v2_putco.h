@@ -44,8 +44,8 @@ int getLastPolledTwoButtonStatus(uint8_t btn1, uint8_t btn2);
 void turnBrakesOn(int);
 void turnRunningLightsOn(void);
 
-bool presetIsSolid(int preset);
 bool presetIsContinuous(int preset);
+bool presetIsSolid(int preset);
 
 #endif // BUILD_FOR_WOKWI
 
@@ -366,8 +366,8 @@ private:
     int continuousPresets[MAX_CONTINUOUS_PRESETS]       _INIT({0});
     int solidPresets[MAX_SOLID_PRESETS]                 _INIT({0});
 #else
-    int continuousPresets[MAX_CONTINUOUS_PRESETS] = { 0,0,0,0,0 };
-    int solidPresets[MAX_SOLID_PRESETS] = { 0,0,0,0,0 };
+    int continuousPresets[MAX_CONTINUOUS_PRESETS] = { 54,55,64,65,0 };
+    int solidPresets[MAX_SOLID_PRESETS] = { 52,53,62,63,0 };
 #endif // BUILD_FOR_WOKWI
 
     // Timers
@@ -474,13 +474,25 @@ public:
     void usermodsetup(void)
 #endif // BUILD_FOR_WOKWI
     {
-        // Turn on access point:
-        //apBehavior = AP_BEHAVIOR_ALWAYS;
-
         // DEBUG_PRINTLN("Hello from my usermod!");
         addPresetToQueue(presetAllOff);
       
         initButtons();
+
+        for (int idx=0; idx<100; idx++)
+        {
+            pollButtons();
+
+            if (getLastPolledButtonStatus(buttonReverse) != BUTTON_RELEASED)
+            {
+                DEBUG_PRINTLN("AP_BEHAVIOR_ALWAYS");
+#if !defined(BUILD_FOR_WOKWI)
+                // Turn on access point:
+                apBehavior = AP_BEHAVIOR_ALWAYS;
+#endif
+                break;
+            }
+        }
 
         // Kickstart the queue timer.
         presetQueueTimer = millis();
@@ -1528,28 +1540,6 @@ public:
 
 
     /*----------------------------------------------------------------------*/
-    /* SOLID
-    case 52:
-    case 53:
-    case 62:
-    case 63:
-    */
-    bool presetIsSolid(int preset)
-    {
-        bool isSolid = false;
-
-        for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
-        {
-            if (preset == solidPresets[idx])
-            {
-                isSolid = true;
-                break;
-            }
-        }
-
-        return isSolid;
-    }
-
     /* CONTINUOUS
     case 54:
     case 55:
@@ -1570,6 +1560,28 @@ public:
         }
 
         return isContinuous;
+    }
+
+    /* SOLID
+    case 52:
+    case 53:
+    case 62:
+    case 63:
+    */
+    bool presetIsSolid(int preset)
+    {
+        bool isSolid = false;
+
+        for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
+        {
+            if (preset == solidPresets[idx])
+            {
+                isSolid = true;
+                break;
+            }
+        }
+
+        return isSolid;
     }
 
     /*----------------------------------------------------------------------*/
