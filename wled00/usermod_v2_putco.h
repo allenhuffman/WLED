@@ -44,6 +44,8 @@ int getLastPolledTwoButtonStatus(uint8_t btn1, uint8_t btn2);
 void turnBrakesOn(int);
 void turnRunningLightsOn(void);
 
+bool presetIsSolid(int preset);
+bool presetIsContinuous(int preset);
 
 #endif // BUILD_FOR_WOKWI
 
@@ -65,9 +67,9 @@ void turnRunningLightsOn(void);
 #define DEFAULT_PRESET_ALL_OFF              9
 
 #define DEFAULT_PRESET_BRAKE_FIRST          10
-#define DEFAULT_PRESET_BRAKE_LAST           10 // Not used.
-#define DEFAULT_PRESET_BRAKE_LEFT           11
-#define DEFAULT_PRESET_BRAKE_RIGHT          12
+#define DEFAULT_PRESET_BRAKE_LAST           14 // Not used.
+#define DEFAULT_PRESET_BRAKE_LEFT           15
+#define DEFAULT_PRESET_BRAKE_RIGHT          16
 
 #define DEFAULT_PRESET_BRAKES_OFF           1
 
@@ -246,9 +248,10 @@ void turnRunningLightsOn(void);
 #define STATE_CONFIG                4   // Configuring section preset
 #define STATE_WORKBLADE             5   // Workblade
 
-#define CONFIG_STATE_STARTUP        0   // Cycle through sections
-#define CONFIG_STATE_TURNS          1   // Cycle through section presets
-#define CONFIG_STATE_EXIT           2
+#define CONFIG_STATE_STARTUP        0   // Cycle through startup presets
+#define CONFIG_STATE_TURNS          1   // Cycle through turn presets
+#define CONFIG_STATE_BRAKES         2   // Cycle through brake presets
+#define CONFIG_STATE_EXIT           3
 
 // STATE_RUNNING - TURNING modes:
 
@@ -401,6 +404,7 @@ private:
     // These are used to tell if config changes one of the sections.
     int orgStartupPreset = 0;
     int orgTurnLeftPreset = 0;
+    int orgBrakePreset = 0;
     int orgWorkbladePreset = 0;
     bool configNeedsToBeSaved = false;
 
@@ -1296,11 +1300,12 @@ public:
             // Save current presets so we know if they changed (for saving out).
             orgStartupPreset = startupPreset;
             orgTurnLeftPreset = turnLeftPreset;
+            orgBrakePreset = brakePreset;
             // Add other sections here.
 
             configPresetStart = presetStartupFirst;
             configPresetEnd = presetStartupLast;
-            configPreset = startupPreset;
+            configPreset = startupPreset; // current startup preset
 
             // Turn off lights to enter this mode.
             addPresetToQueue(presetAllOff);
@@ -1347,51 +1352,82 @@ public:
                 configTimer = 0; // turn off
 
                 // using if/then instead of switch/case so we can "break" out.
-                if (configState == CONFIG_STATE_STARTUP)
+                switch (configState)
                 {
-                    startupPreset = configPreset;
+                    case CONFIG_STATE_STARTUP:
+                        startupPreset = configPreset;
 
-                    // If different, flag that we need to save it.
-                    if (startupPreset != orgStartupPreset)
-                    {
-                        configNeedsToBeSaved = true;
-                    }
+                        // If different, flag that we need to save it.
+                        if (startupPreset != orgStartupPreset)
+                        {
+                            configNeedsToBeSaved = true;
+                        }
 
-                    // Move on to next section.
-                    configState = CONFIG_STATE_TURNS;
+                        // Move on to next section.
+                        configState = CONFIG_STATE_TURNS;
+                        configPresetStart = presetTurnLeftFirst;
+                        configPresetEnd = presetTurnLeftLast;
+                        configPreset = turnLeftPreset; // current turn preset
+                        break;
+                    
+                    case CONFIG_STATE_TURNS:
+                        turnLeftPreset = configPreset;
+                        // Sync the right turn preset to match.
+                        turnRightPreset = presetTurnRightFirst + (turnLeftPreset - presetTurnLeftFirst);
+                    
+                        // If different, flag that we need to save it.
+                        if (turnLeftPreset != orgTurnLeftPreset)
+                        {
+                            configNeedsToBeSaved = true;
+                        }
 
-                    configPresetStart = presetTurnLeftFirst;
-                    configPresetEnd = presetTurnLeftLast;
-                    configPreset = turnLeftPreset;
+                        // Move on tot he next section.
+                        configState = CONFIG_STATE_BRAKES;
+                        configPresetStart = presetBrakeFirst;
+                        configPresetEnd = presetBrakeLast;
+                        configPreset = brakePreset; // current brake preset
+                        break;
 
+                    case CONFIG_STATE_BRAKES:
+                        brakePreset = configPreset;
+                    
+                        // If different, flag that we need to save it.
+                        if (brakePreset != orgBrakePreset)
+                        {
+                            configNeedsToBeSaved = true;
+                        }
+
+                        // Move on tot he next section.
+                        configState = CONFIG_STATE_EXIT; // done!
+                        break;
+
+                    default:
+                        // This should never happen, but if it does, exit.
+                        configState = CONFIG_STATE_EXIT;
+                        break;
+                } // switch (configState)
+
+                if (configState != CONFIG_STATE_EXIT)
+                {  
+                    // Shut off old, apply new, reset timer.
                     addPresetToQueue(presetAllOff);
                     addPresetToQueue(configPreset);
-                    configTimer = millis();
+                    configTimer = millis();                    
                 }
-                else if (configState == CONFIG_STATE_TURNS)
-                {
-                    turnLeftPreset = configPreset;
-                    // Sync the right turn preset to match.
-                    turnRightPreset = presetTurnRightFirst + (turnLeftPreset - presetTurnLeftFirst);
-                    
-                    // If different, flag that we need to save it.
-                    if (turnLeftPreset != orgTurnLeftPreset)
-                    {
-                        configNeedsToBeSaved = true;
-                    }
-
-                    // SAVE IF ANYTHING CHANGED!
-                    if (configNeedsToBeSaved == true)
-                    {
-                        serializeConfig();
-                    }
-
-                    // This is the last one. Exit config.
-                    state = STATE_RUNNING;
-
-                    addPresetToQueue(presetAllOff);
-                } // end of CONFIG_STATE_TURNS
             } // end of if millis()
+
+            if (configState == CONFIG_STATE_EXIT)
+            {
+                // SAVE IF ANYTHING CHANGED!
+                if (configNeedsToBeSaved == true)
+                {
+                    serializeConfig();
+                }
+
+                // This is the last one. Exit config.
+                state = STATE_RUNNING;
+                addPresetToQueue(presetAllOff);
+            }
         } // end of button not pressed.
     } // end of handleConfig()
 
