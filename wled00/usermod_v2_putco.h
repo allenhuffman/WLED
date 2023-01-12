@@ -67,9 +67,10 @@ bool presetIsContinuous(int preset);
 #define DEFAULT_PRESET_ALL_OFF              9
 
 #define DEFAULT_PRESET_BRAKE_FIRST          10
-#define DEFAULT_PRESET_BRAKE_LAST           14 // Not used.
-#define DEFAULT_PRESET_BRAKE_LEFT           15
-#define DEFAULT_PRESET_BRAKE_RIGHT          16
+#define DEFAULT_PRESET_BRAKE_LAST           11
+#define DEFAULT_PRESET_BRAKE_LEFT           12
+#define DEFAULT_PRESET_BRAKE_RIGHT          13
+#define DEFAULT_PRESET_BRAKE_PULSE          11
 
 #define DEFAULT_PRESET_BRAKES_OFF           1
 
@@ -120,13 +121,14 @@ bool presetIsContinuous(int preset);
 #define DEFAULT_POWERUP_DELAY_MS            1000
 #define DEFAULT_STARTUP_TIME_MS             1000
 #else
-#define DEFAULT_POWERUP_DELAY_MS            5000 // TODO!
-#define DEFAULT_STARTUP_TIME_MS             4000  // 4000 ms = 4 seconds
+#define DEFAULT_POWERUP_DELAY_MS            5000
+#define DEFAULT_STARTUP_TIME_MS             4000 // 4000 ms = 4 seconds
 #endif
 #define DEFAULT_CONFIG_TIME_MS              5000  // 5 seconds w/o input to choose
-#define DEFAULT_TURNING_TIME_MS             750   //500
+#define DEFAULT_TURNING_TIME_MS             750
 #define DEFAULT_ANIMATION_TIME_MS           380
-#define DEFAULT_HAZARD_TIME_MS              750   //500
+#define DEFAULT_HAZARD_TIME_MS              750
+#define DEFAULT_BRAKE_PULSE_TIME_MS         250
 
 // Button timing
 #define DEFAULT_DEBOUNCE_TIME_MS            50  // only consider button input of at least 50ms as valid (debouncing)
@@ -189,6 +191,7 @@ bool presetIsContinuous(int preset);
 #define CFG_JSON_PRESET_BRAKE_LEFT          "presetBrakeLeft"
 #define CFG_JSON_PRESET_BRAKE_RIGHT         "presetBrakeRight"
 #define CFG_JSON_PRESET_BRAKES_OFF          "presetBrakesOff"
+#define CFG_JSON_PRESET_BRAKE_PULSE         "presetBrakePulse"
 
 #define CFG_JSON_PRESET_REVERSE_FIRST       "presetReverseFirst"
 #define CFG_JSON_PRESET_REVERSE_LAST        "presetReverseLast"
@@ -227,6 +230,7 @@ bool presetIsContinuous(int preset);
 #define CFG_JSON_TURNING_TIME_MS            "turningTimeMS"
 #define CFG_JSON_ANIMATION_TIME_MS          "animationTimeMS"
 #define CFG_JSON_HAZARD_TIME_MS             "hazardTimeMS"
+#define CFG_JSON_BRAKE_PULSE_TIME_MS        "brakePulseTimeMS"
 
 // Button timing
 #define CFG_JSON_LONG_PRESS_TIME_MS         "longPressTimeMS"
@@ -323,6 +327,7 @@ private:
     int presetBrakesOff = DEFAULT_PRESET_BRAKES_OFF;
     int presetBrakeLeft = DEFAULT_PRESET_BRAKE_LEFT;
     int presetBrakeRight = DEFAULT_PRESET_BRAKE_RIGHT;
+    int presetBrakePulse = DEFAULT_PRESET_BRAKE_PULSE;
 
     int presetReverseFirst = DEFAULT_PRESET_REVERSE_FIRST;
     int presetReverseLast = DEFAULT_PRESET_REVERSE_LAST;
@@ -361,6 +366,7 @@ private:
     int turningTimeMS = DEFAULT_TURNING_TIME_MS;
     int animationTimeMS = DEFAULT_ANIMATION_TIME_MS;
     int hazardTimeMS = DEFAULT_HAZARD_TIME_MS;
+    int brakePulseTimeMS = DEFAULT_BRAKE_PULSE_TIME_MS;
 
     // Button times
     int debounceTimeMS = DEFAULT_DEBOUNCE_TIME_MS;
@@ -379,7 +385,7 @@ private:
     unsigned long turnOffRightBlinkerTimer = 0;
     unsigned long configTimer = 0;
     unsigned long turnOffHazardsTimer = 0;
-    unsigned long turnOnBrakesTimer = 0;
+    unsigned long brakePulseTimer = 0;
     unsigned long turnOnLeftBrakeTimer = 0;
     unsigned long turnOnRightBrakeTimer = 0;
 
@@ -640,7 +646,7 @@ public:
         blinkerState = BLINKERS_HAZARD;
         addPresetToQueue(hazardPreset);
 
-        turnOnBrakesTimer = 0; // cancel
+        brakePulseTimer = 0; // cancel
         turnOnLeftBrakeTimer = 0; // cancel
         turnOnRightBrakeTimer = 0; // cancel
     }
@@ -679,6 +685,12 @@ public:
 
             if (blinkerState == BLINKERS_OFF)
             {
+                if (brakePreset == presetBrakePulse)
+                {
+                    // Start timer to know when to transition to normal brakes.
+                    brakePulseTimer = brakePulseTimeMS;
+                }
+
                 addPresetToQueue(brakePreset);
             }
             if (blinkerState == BLINKERS_LEFT)
@@ -883,14 +895,24 @@ public:
             turnHazardsOff();
         }
 
-        if ((turnOnBrakesTimer != 0) && (millis() - turnOnBrakesTimer > 500)) // TODO: hard-coded
+        if ((brakePulseTimer != 0) && (millis() - brakePulseTimer > brakePulseTimeMS))
         {
-            turnOnBrakesTimer = 0;
+            brakePulseTimer = 0;
 
             if (brakingState != BRAKES_OFF)
             {
-                //turnBrakesOn(brakingState);
-                addPresetToQueue(brakePreset);
+                if (brakePreset == presetBrakePulse)
+                {
+                    // HARD CODED: use the first brake pattern.
+                    addPresetToQueue(presetBrakeFirst);
+                }
+                else
+                {
+                    // Timer should never be set except for brake pulse, but
+                    // just in case...
+                    //turnBrakesOn(brakingState);
+                    addPresetToQueue(brakePreset);
+                }
             }
         }
 
@@ -1708,6 +1730,7 @@ public:
         top[CFG_JSON_PRESET_BRAKE_LEFT] = presetBrakeLeft;
         top[CFG_JSON_PRESET_BRAKE_RIGHT] = presetBrakeRight;
         top[CFG_JSON_PRESET_BRAKES_OFF] = presetBrakesOff;
+        top[CFG_JSON_PRESET_BRAKE_PULSE] = presetBrakePulse;
 
         top[CFG_JSON_PRESET_REVERSE_FIRST] = presetReverseFirst;
         top[CFG_JSON_PRESET_REVERSE_LAST] = presetReverseLast;
@@ -1746,6 +1769,7 @@ public:
         top[CFG_JSON_TURNING_TIME_MS] = turningTimeMS;
         top[CFG_JSON_ANIMATION_TIME_MS] = animationTimeMS;
         top[CFG_JSON_HAZARD_TIME_MS] = hazardTimeMS;
+        top[CFG_JSON_BRAKE_PULSE_TIME_MS] = brakePulseTimeMS;
 
         // Button times
         top[CFG_JSON_DEBOUNCE_TIME_MS] = debounceTimeMS;
@@ -1818,6 +1842,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_LEFT], presetBrakeLeft, DEFAULT_PRESET_BRAKE_LEFT);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_RIGHT], presetBrakeRight, DEFAULT_PRESET_BRAKE_RIGHT);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKES_OFF], presetBrakesOff, DEFAULT_PRESET_BRAKES_OFF);
+        configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_PULSE], presetBrakePulse, DEFAULT_PRESET_BRAKE_PULSE);
 
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_REVERSE_FIRST], presetReverseFirst, DEFAULT_PRESET_REVERSE_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_REVERSE_LAST], presetReverseLast, DEFAULT_PRESET_REVERSE_LAST);
@@ -1856,6 +1881,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_TURNING_TIME_MS], turningTimeMS, DEFAULT_TURNING_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_ANIMATION_TIME_MS], animationTimeMS, DEFAULT_ANIMATION_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_HAZARD_TIME_MS], hazardTimeMS, DEFAULT_HAZARD_TIME_MS);
+        configComplete &= getJsonValue(top[CFG_JSON_BRAKE_PULSE_TIME_MS], brakePulseTimeMS, DEFAULT_BRAKE_PULSE_TIME_MS);
 
         // Button times
         configComplete &= getJsonValue(top[CFG_JSON_DEBOUNCE_TIME_MS], debounceTimeMS, DEFAULT_DEBOUNCE_TIME_MS);
