@@ -146,6 +146,9 @@ bool presetIsContinuous(int preset);
 #define DEFAULT_PRESET_QUEUE_TIME_MS        50 // may need to be longer.
 #define DEFAULT_PRESET_QUEUE_SIZE           10
 
+#define MAX_CONTINUOUS_PRESETS              5
+#define MAX_SOLID_PRESETS                   5
+
 
 /*--------------------------------------------------------------------------*/
 // Stuff you probably shouldn't change...
@@ -358,6 +361,15 @@ private:
     int presetWorkbladeLast =  DEFAULT_PRESET_WORKBLADE_LAST;
     int presetWorkbladeOff =   DEFAULT_PRESET_WORKBLADE_OFF;
 
+    // Arrays of presets that are continuous or solid
+#if !defined(BUILD_FOR_WOKWI)
+    int continuousPresets[MAX_CONTINUOUS_PRESETS]       _INIT({0});
+    int solidPresets[MAX_SOLID_PRESETS]                 _INIT({0});
+#else
+    int continuousPresets[MAX_CONTINUOUS_PRESETS] = { 0,0,0,0,0 };
+    int solidPresets[MAX_SOLID_PRESETS] = { 0,0,0,0,0 };
+#endif // BUILD_FOR_WOKWI
+
     // Timers
     // I forget if these need to be signed or unsigned, or if it matters.
     int powerupDelayMS = DEFAULT_POWERUP_DELAY_MS;
@@ -462,6 +474,9 @@ public:
     void usermodsetup(void)
 #endif // BUILD_FOR_WOKWI
     {
+        // Turn on access point:
+        //apBehavior = AP_BEHAVIOR_ALWAYS;
+
         // DEBUG_PRINTLN("Hello from my usermod!");
         addPresetToQueue(presetAllOff);
       
@@ -1513,35 +1528,45 @@ public:
 
 
     /*----------------------------------------------------------------------*/
+    /* SOLID
+    case 52:
+    case 53:
+    case 62:
+    case 63:
+    */
     bool presetIsSolid(int preset)
     {
         bool isSolid = false;
 
-        switch (preset)
+        for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
         {
-            case 52:
-            case 53:
-            case 62:
-            case 63:
+            if (preset == solidPresets[idx])
+            {
                 isSolid = true;
                 break;
+            }
         }
 
         return isSolid;
     }
 
+    /* CONTINUOUS
+    case 54:
+    case 55:
+    case 64:
+    case 65:
+    */
     bool presetIsContinuous(int preset)
     {
         bool isContinuous = false;
 
-        switch (preset)
+        for (int idx=0; idx < MAX_CONTINUOUS_PRESETS; idx++)
         {
-            case 54:
-            case 55:
-            case 64:
-            case 65:
+            if (preset == continuousPresets[idx])
+            {
                 isContinuous = true;
                 break;
+            }
         }
 
         return isContinuous;
@@ -1778,9 +1803,18 @@ public:
         // Preset queue timing
         top[CFG_JSON_PRESET_QUEUE_TIME_MS] = presetQueueTimeMS;
 
-        // JsonArray presetArray = top.createNestedArray("presets");
-        // pinArray.add(testPins[0]);
-        // pinArray.add(testPins[1]);
+        // Continuous and Solid presets
+        JsonArray continuousPresetArray = top.createNestedArray("continuousPresets");
+        for (int idx=0; idx < MAX_CONTINUOUS_PRESETS; idx++)
+        {
+            continuousPresetArray.add(continuousPresets[idx]);
+        }
+
+        JsonArray solidPresetArray = top.createNestedArray("solidPresets");
+        for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
+        {
+            solidPresetArray.add(solidPresets[idx]);
+        }
     }
 
 
@@ -1889,6 +1923,17 @@ public:
 
         // Preset queue time
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_QUEUE_TIME_MS], presetQueueTimeMS, DEFAULT_PRESET_QUEUE_TIME_MS);
+
+        // Continuous and Solid presets
+        for (int idx=0; idx < MAX_CONTINUOUS_PRESETS; idx++)
+        {
+            configComplete &= getJsonValue(top["continuousePresets"][idx], continuousPresets[idx], -1);
+        }
+
+        for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
+        {
+            configComplete &= getJsonValue(top["solidPresets"][idx], solidPresets[idx], -1);
+        }
 
         // Correct any bad values.
         if ((brakePreset < presetBrakeFirst) || (brakePreset > presetBrakeLast))
