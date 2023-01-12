@@ -1,12 +1,11 @@
 //#define BUILD_FOR_WOKWI
 
-// 12-28-2022
-// 12-28-2022b
-// 12-28-2022c
-// 12-28-2022d
-// 12-28-2022e
 /*
-TODO: add the configs for right brake off, left brake off. Make debounce adjustable in config. Make long press adjustable in config.
+TODO:
+
+1) "rising edge/falling edge"
+2) "rising edge/falling edge/timer"
+3) "rising edge/timer"
 */
 
 #pragma once
@@ -124,6 +123,7 @@ void turnRunningLightsOn(void);
 #endif
 #define DEFAULT_CONFIG_TIME_MS              5000  // 5 seconds w/o input to choose
 #define DEFAULT_TURNING_TIME_MS             750   //500
+#define DEFAULT_ANIMATION_TIME_MS           380
 #define DEFAULT_HAZARD_TIME_MS              750   //500
 
 // Button timing
@@ -223,6 +223,7 @@ void turnRunningLightsOn(void);
 #define CFG_JSON_STARTUP_TIME_MS            "startupTimeMS"
 #define CFG_JSON_CONFIG_TIME_MS             "configTimeMS"
 #define CFG_JSON_TURNING_TIME_MS            "turningTimeMS"
+#define CFG_JSON_ANIMATION_TIME_MS          "animationTimeMS"
 #define CFG_JSON_HAZARD_TIME_MS             "hazardTimeMS"
 
 // Button timing
@@ -355,6 +356,7 @@ private:
     int startupTimeMS = DEFAULT_STARTUP_TIME_MS;
     int configTimeMS = DEFAULT_CONFIG_TIME_MS;
     int turningTimeMS = DEFAULT_TURNING_TIME_MS;
+    int animationTimeMS = DEFAULT_ANIMATION_TIME_MS;
     int hazardTimeMS = DEFAULT_HAZARD_TIME_MS;
 
     // Button times
@@ -379,6 +381,8 @@ private:
     unsigned long turnOnRightBrakeTimer = 0;
 
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
+
+    int turnOffTimeMS = 0;
 
     // State machine
     int state = STATE_POWERUP;
@@ -907,7 +911,7 @@ public:
         }
 
 
-        if ((turnOffLeftBlinkerTimer != 0) && (millis() - turnOffLeftBlinkerTimer > turningTimeMS))
+        if ((turnOffLeftBlinkerTimer != 0) && (millis() - turnOffLeftBlinkerTimer > turnOffTimeMS))
         {
             turnOffLeftBlinkerTimer = 0; // shut off
 
@@ -917,7 +921,7 @@ public:
             }
         }
 
-        if ((turnOffRightBlinkerTimer != 0) && (millis() - turnOffRightBlinkerTimer > turningTimeMS))
+        if ((turnOffRightBlinkerTimer != 0) && (millis() - turnOffRightBlinkerTimer > turnOffTimeMS))
         {
             turnOffRightBlinkerTimer = 0;
 
@@ -1025,7 +1029,10 @@ public:
                     // HACK for Walter.
                     if (blinkerState == BLINKERS_LEFT)
                     {
-                        turnLeftBlinkerOff();
+                        if (presetIsSolid(turnLeftPreset) == true)
+                        {
+                            turnLeftBlinkerOff();
+                        }
                     }
                     break;
 
@@ -1053,6 +1060,15 @@ public:
                             if (blinkerState == BLINKERS_OFF)
                             {
                                 turnLeftBlinkerOn();
+
+                                if (presetIsContinuous(turnLeftPreset) == true)
+                                {
+                                    turnOffTimeMS = turningTimeMS;
+                                }
+                                else
+                                {
+                                    turnOffTimeMS = animationTimeMS;
+                                }
                             }
 
                             if (blinkerState == BLINKERS_LEFT)
@@ -1109,7 +1125,10 @@ public:
                     // HACK for Walter.
                     if (blinkerState == BLINKERS_RIGHT)
                     {
-                        turnRightBlinkerOff();
+                        if (presetIsSolid(turnRightPreset) == true)
+                        {
+                            turnRightBlinkerOff();
+                        }
                     }
                     break;
 
@@ -1137,6 +1156,15 @@ public:
                             if (blinkerState == BLINKERS_OFF)
                             {
                                 turnRightBlinkerOn();
+
+                                if (presetIsContinuous(turnRightPreset) == true)
+                                {
+                                    turnOffTimeMS = turningTimeMS;
+                                }
+                                else
+                                {
+                                    turnOffTimeMS = animationTimeMS;
+                                }
                             }
 
                             if (blinkerState == BLINKERS_RIGHT)
@@ -1425,6 +1453,42 @@ public:
         }
     } // end of handleWorkblade()
 
+
+    /*----------------------------------------------------------------------*/
+    bool presetIsSolid(int preset)
+    {
+        bool isSolid = false;
+
+        switch (preset)
+        {
+            case 52:
+            case 53:
+            case 62:
+            case 63:
+                isSolid = true;
+                break;
+        }
+
+        return isSolid;
+    }
+
+    bool presetIsContinuous(int preset)
+    {
+        bool isContinuous = false;
+
+        switch (preset)
+        {
+            case 54:
+            case 55:
+            case 64:
+            case 65:
+                isContinuous = true;
+                break;
+        }
+
+        return isContinuous;
+    }
+
     /*----------------------------------------------------------------------*/
     void handlePresetQueue(void)
     {
@@ -1644,6 +1708,7 @@ public:
         top[CFG_JSON_STARTUP_TIME_MS] = startupTimeMS;
         top[CFG_JSON_CONFIG_TIME_MS] = configTimeMS;
         top[CFG_JSON_TURNING_TIME_MS] = turningTimeMS;
+        top[CFG_JSON_ANIMATION_TIME_MS] = animationTimeMS;
         top[CFG_JSON_HAZARD_TIME_MS] = hazardTimeMS;
 
         // Button times
@@ -1753,6 +1818,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_STARTUP_TIME_MS], startupTimeMS, DEFAULT_STARTUP_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_CONFIG_TIME_MS], configTimeMS, DEFAULT_CONFIG_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_TURNING_TIME_MS], turningTimeMS, DEFAULT_TURNING_TIME_MS);
+        configComplete &= getJsonValue(top[CFG_JSON_ANIMATION_TIME_MS], animationTimeMS, DEFAULT_ANIMATION_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_HAZARD_TIME_MS], hazardTimeMS, DEFAULT_HAZARD_TIME_MS);
 
         // Button times
