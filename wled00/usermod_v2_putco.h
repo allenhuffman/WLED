@@ -489,6 +489,7 @@ public:
 #if !defined(BUILD_FOR_WOKWI)
                 // Turn on access point:
                 apBehavior = AP_BEHAVIOR_ALWAYS;
+                WLED::instance().initAP(true);
 #endif
                 break;
             }
