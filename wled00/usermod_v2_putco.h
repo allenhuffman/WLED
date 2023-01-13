@@ -954,7 +954,7 @@ public:
         }
 
         // Elsewhere, if this value is not 0, don't pulse.
-        if ((brakePulseAllowedTimer != 0) && (millis() - brakePulseAllowedTimer > 500)) // TODO:
+        if ((brakePulseAllowedTimer != 0) && (millis() - brakePulseAllowedTimer > 800)) // TODO:
         {
             brakePulseAllowedTimer = 0;
         }
