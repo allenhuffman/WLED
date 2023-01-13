@@ -400,6 +400,7 @@ private:
     unsigned long brakePulseTimer = 0;
     unsigned long turnOnLeftBrakeTimer = 0;
     unsigned long turnOnRightBrakeTimer = 0;
+    unsigned long brakePulseAllowedTimer = 0;
 
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
 
@@ -618,6 +619,8 @@ public:
         blinkerState = BLINKERS_LEFT;
         addPresetToQueue(turnLeftPreset);
         turnOnLeftBrakeTimer = 0; // cancel
+
+        brakePulseAllowedTimer = millis();
     }
 
     void turnLeftBlinkerOff()
@@ -642,6 +645,8 @@ public:
         blinkerState = BLINKERS_RIGHT;
         addPresetToQueue(turnRightPreset);
         turnOnRightBrakeTimer = 0; // cancel
+    
+        brakePulseAllowedTimer = millis();
     }
 
     void turnRightBlinkerOff()
@@ -713,13 +718,17 @@ public:
 
             if (blinkerState == BLINKERS_OFF)
             {
-                if (brakePreset == presetBrakePulse)
+                if ((brakePreset == presetBrakePulse) && (brakePulseAllowedTimer == 0))
                 {
                     // Start timer to know when to transition to normal brakes.
                     brakePulseTimer = millis();
+                    addPresetToQueue(brakePreset);
                 }
-
-                addPresetToQueue(brakePreset);
+                else
+                {
+                    // TODO: fix this logic a bit.
+                    addPresetToQueue(presetBrakeFirst);
+                }
             }
             else if (blinkerState == BLINKERS_LEFT)
             {
@@ -944,6 +953,12 @@ public:
             }
         }
 
+        // Elsewhere, if this value is not 0, don't pulse.
+        if ((brakePulseAllowedTimer != 0) && (millis() - brakePulseAllowedTimer > 500)) // TODO:
+        {
+            brakePulseAllowedTimer = 0;
+        }
+
         if ((turnOnLeftBrakeTimer != 0) && (millis() - turnOnLeftBrakeTimer > 500)) // TODO: hard-coded
         {
             turnOnLeftBrakeTimer = 0;
@@ -963,7 +978,6 @@ public:
                 addPresetToQueue(presetBrakeRight);
             }
         }
-
 
         if ((turnOffLeftBlinkerTimer != 0) && (millis() - turnOffLeftBlinkerTimer > turnOffTimeMS))
         {
