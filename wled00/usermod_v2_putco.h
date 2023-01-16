@@ -129,6 +129,8 @@ bool presetIsSolid(int preset);
 #define DEFAULT_ANIMATION_TIME_MS           380
 #define DEFAULT_HAZARD_TIME_MS              750
 #define DEFAULT_BRAKE_PULSE_TIME_MS         250
+#define DEFAULT_TURN_ON_BRAKE_TIME_MS           500
+#define DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS    800
 
 // Button timing
 #define DEFAULT_DEBOUNCE_TIME_MS            50  // only consider button input of at least 50ms as valid (debouncing)
@@ -234,6 +236,8 @@ bool presetIsSolid(int preset);
 #define CFG_JSON_ANIMATION_TIME_MS          "animationTimeMS"
 #define CFG_JSON_HAZARD_TIME_MS             "hazardTimeMS"
 #define CFG_JSON_BRAKE_PULSE_TIME_MS        "brakePulseTimeMS"
+#define CFG_JSON_TURN_ON_BRAKE_TIME_MS          "turnOnBrakeTimeMS"
+#define CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS   "disallowBrakePulseTimeMS"
 
 // Button timing
 #define CFG_JSON_LONG_PRESS_TIME_MS         "longPressTimeMS"
@@ -370,7 +374,7 @@ private:
     int solidPresets[MAX_SOLID_PRESETS] = { 52,53,62,63,0 };
 #endif // BUILD_FOR_WOKWI
 
-    // Timers
+    // Times
     // I forget if these need to be signed or unsigned, or if it matters.
     int powerupDelayMS = DEFAULT_POWERUP_DELAY_MS;
     int startupTimeMS = DEFAULT_STARTUP_TIME_MS;
@@ -379,6 +383,8 @@ private:
     int animationTimeMS = DEFAULT_ANIMATION_TIME_MS;
     int hazardTimeMS = DEFAULT_HAZARD_TIME_MS;
     int brakePulseTimeMS = DEFAULT_BRAKE_PULSE_TIME_MS;
+    int turnOnBrakeTimeMS = DEFAULT_TURN_ON_BRAKE_TIME_MS;
+    int disallowBreakPulseTimeMS = DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS;
 
     // Button times
     int debounceTimeMS = DEFAULT_DEBOUNCE_TIME_MS;
@@ -954,12 +960,12 @@ public:
         }
 
         // Elsewhere, if this value is not 0, don't pulse.
-        if ((brakePulseAllowedTimer != 0) && (millis() - brakePulseAllowedTimer > 800)) // TODO:
+        if ((brakePulseAllowedTimer != 0) && (millis() - brakePulseAllowedTimer > disallowBreakPulseTimeMS))
         {
             brakePulseAllowedTimer = 0;
         }
 
-        if ((turnOnLeftBrakeTimer != 0) && (millis() - turnOnLeftBrakeTimer > 500)) // TODO: hard-coded
+        if ((turnOnLeftBrakeTimer != 0) && (millis() - turnOnLeftBrakeTimer > turnOnBrakeTimeMS))
         {
             turnOnLeftBrakeTimer = 0;
 
@@ -969,7 +975,7 @@ public:
             }
         }
 
-        if ((turnOnRightBrakeTimer != 0) && (millis() - turnOnRightBrakeTimer > 500)) // TODO: hard-coded
+        if ((turnOnRightBrakeTimer != 0) && (millis() - turnOnRightBrakeTimer > turnOnBrakeTimeMS))
         {
             turnOnRightBrakeTimer = 0;
 
@@ -1822,6 +1828,8 @@ public:
         top[CFG_JSON_ANIMATION_TIME_MS] = animationTimeMS;
         top[CFG_JSON_HAZARD_TIME_MS] = hazardTimeMS;
         top[CFG_JSON_BRAKE_PULSE_TIME_MS] = brakePulseTimeMS;
+        top[CFG_JSON_TURN_ON_BRAKE_TIME_MS] = turnOnBrakeTimeMS;
+        top[CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS] = disallowBreakPulseTimeMS;
 
         // Button times
         top[CFG_JSON_DEBOUNCE_TIME_MS] = debounceTimeMS;
@@ -1935,7 +1943,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_WORKBLADE_LAST], presetWorkbladeLast, DEFAULT_PRESET_WORKBLADE_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_WORKBLADE_OFF], presetWorkbladeOff, DEFAULT_PRESET_WORKBLADE_OFF);
 
-        // Timers
+        // Times
         configComplete &= getJsonValue(top[CFG_JSON_POWERUP_DELAY_MS], powerupDelayMS, DEFAULT_POWERUP_DELAY_MS);
         configComplete &= getJsonValue(top[CFG_JSON_STARTUP_TIME_MS], startupTimeMS, DEFAULT_STARTUP_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_CONFIG_TIME_MS], configTimeMS, DEFAULT_CONFIG_TIME_MS);
@@ -1943,6 +1951,8 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_ANIMATION_TIME_MS], animationTimeMS, DEFAULT_ANIMATION_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_HAZARD_TIME_MS], hazardTimeMS, DEFAULT_HAZARD_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_BRAKE_PULSE_TIME_MS], brakePulseTimeMS, DEFAULT_BRAKE_PULSE_TIME_MS);
+        configComplete &= getJsonValue(top[CFG_JSON_TURN_ON_BRAKE_TIME_MS], turnOnBrakeTimeMS, DEFAULT_TURN_ON_BRAKE_TIME_MS);
+        configComplete &= getJsonValue(top[CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS], disallowBreakPulseTimeMS, DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS);
 
         // Button times
         configComplete &= getJsonValue(top[CFG_JSON_DEBOUNCE_TIME_MS], debounceTimeMS, DEFAULT_DEBOUNCE_TIME_MS);
