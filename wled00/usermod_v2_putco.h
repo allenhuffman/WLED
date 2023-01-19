@@ -125,8 +125,8 @@ bool presetIsSolid(int preset);
 #define DEFAULT_STARTUP_TIME_MS             4000 // 4000 ms = 4 seconds
 #endif
 #define DEFAULT_CONFIG_TIME_MS              5000  // 5 seconds w/o input to choose
-#define DEFAULT_TURNING_TIME_MS             750
-#define DEFAULT_ANIMATION_TIME_MS           380
+#define DEFAULT_TURNING_TIME_MS             380 // One cycle
+#define DEFAULT_ANIMATION_TIME_MS           750 // Looping (continuous)
 #define DEFAULT_HAZARD_TIME_MS              750
 #define DEFAULT_BRAKE_PULSE_TIME_MS         250
 #define DEFAULT_TURN_ON_BRAKE_TIME_MS           500
@@ -167,84 +167,84 @@ bool presetIsSolid(int preset);
 /*--------------------------------------------------------------------------*/
 
 // Name of this config section:
-#define CONFIG_SECTION_NAME                 "putco"
+#define CONFIG_SECTION_NAME                     "putco"
 
 // Name of each entry in this config section:
 // Presets
-#define CFG_JSON_BRAKE                      "brakePreset"
-#define CFG_JSON_REVERSE                    "reversePreset"
-#define CFG_JSON_RUNNING                    "runningPreset"
-#define CFG_JSON_STARTUP                    "startupPreset"
-#define CFG_JSON_TURN_LEFT                  "turnLeftPreset"
-#define CFG_JSON_TURN_RIGHT                 "turnRightPreset"
-#define CFG_JSON_HAZARD                     "hazardPreset"
-#define CFG_JSON_WORKBLADE                  "workbladePreset"
+#define CFG_JSON_BRAKE                          "brakePreset"
+#define CFG_JSON_REVERSE                        "reversePreset"
+#define CFG_JSON_RUNNING                        "runningPreset"
+#define CFG_JSON_STARTUP                        "startupPreset"
+#define CFG_JSON_TURN_LEFT                      "turnLeftPreset"
+#define CFG_JSON_TURN_RIGHT                     "turnRightPreset"
+#define CFG_JSON_HAZARD                         "hazardPreset"
+#define CFG_JSON_WORKBLADE                      "workbladePreset"
 
-// Buttons
-#define CFG_JSON_BUTTON_RUNNING             "buttonRunning"
-#define CFG_JSON_BUTTON_REVERSE             "buttonReverse"
-#define CFG_JSON_BUTTON_TURN_LEFT           "buttonTurnLeft"
-#define CFG_JSON_BUTTON_TURN_RIGHT          "buttonTurnRight"
-#define CFG_JSON_BUTTON_BRAKE               "buttonBrake"
-#define CFG_JSON_BUTTON_TAP_WIRE            "buttonTapWire"
+// Buttons  
+#define CFG_JSON_BUTTON_RUNNING                 "buttonRunning"
+#define CFG_JSON_BUTTON_REVERSE                 "buttonReverse"
+#define CFG_JSON_BUTTON_TURN_LEFT               "buttonTurnLeft"
+#define CFG_JSON_BUTTON_TURN_RIGHT              "buttonTurnRight"
+#define CFG_JSON_BUTTON_BRAKE                   "buttonBrake"
+#define CFG_JSON_BUTTON_TAP_WIRE                "buttonTapWire"
 
-// Presets
-#define CFG_JSON_PRESET_ALL_OFF             "presetAllOff"
+// Presets  
+#define CFG_JSON_PRESET_ALL_OFF                 "presetAllOff"
 
-#define CFG_JSON_PRESET_BRAKE_FIRST         "presetBrakeFirst"
-#define CFG_JSON_PRESET_BRAKE_LAST          "presetBrakeLast"
-#define CFG_JSON_PRESET_BRAKE_LEFT          "presetBrakeLeft"
-#define CFG_JSON_PRESET_BRAKE_RIGHT         "presetBrakeRight"
-#define CFG_JSON_PRESET_BRAKES_OFF          "presetBrakesOff"
-#define CFG_JSON_PRESET_BRAKE_PULSE         "presetBrakePulse"
+#define CFG_JSON_PRESET_BRAKE_FIRST             "presetBrakeFirst"
+#define CFG_JSON_PRESET_BRAKE_LAST              "presetBrakeLast"
+#define CFG_JSON_PRESET_BRAKE_LEFT              "presetBrakeLeft"
+#define CFG_JSON_PRESET_BRAKE_RIGHT             "presetBrakeRight"
+#define CFG_JSON_PRESET_BRAKES_OFF              "presetBrakesOff"
+#define CFG_JSON_PRESET_BRAKE_PULSE             "presetBrakePulse"
 
-#define CFG_JSON_PRESET_REVERSE_FIRST       "presetReverseFirst"
-#define CFG_JSON_PRESET_REVERSE_LAST        "presetReverseLast"
-#define CFG_JSON_PRESET_REVERSE_OFF         "presetReverseOff"
+#define CFG_JSON_PRESET_REVERSE_FIRST           "presetReverseFirst"
+#define CFG_JSON_PRESET_REVERSE_LAST            "presetReverseLast"
+#define CFG_JSON_PRESET_REVERSE_OFF             "presetReverseOff"
 
-#define CFG_JSON_PRESET_RUNNING_FIRST       "presetRunningFirst"
-#define CFG_JSON_PRESET_RUNNING_LAST        "presetRunningLast"
-#define CFG_JSON_PRESET_RUNNING_OFF         "presetRunningOff"
+#define CFG_JSON_PRESET_RUNNING_FIRST           "presetRunningFirst"
+#define CFG_JSON_PRESET_RUNNING_LAST            "presetRunningLast"
+#define CFG_JSON_PRESET_RUNNING_OFF             "presetRunningOff"
 
-#define CFG_JSON_PRESET_STARTUP_FIRST       "presetStartupFirst"
-#define CFG_JSON_PRESET_STARTUP_LAST        "presetStartupLast"
+#define CFG_JSON_PRESET_STARTUP_FIRST           "presetStartupFirst"
+#define CFG_JSON_PRESET_STARTUP_LAST            "presetStartupLast"
 
-#define CFG_JSON_PRESET_TURN_LEFT_FIRST     "presetTurnLeftFirst"
-#define CFG_JSON_PRESET_TURN_LEFT_LAST      "presetTurnLeftLast"
-#define CFG_JSON_PRESET_TURN_LEFT_OFF       "presetTurnLeftOff"
+#define CFG_JSON_PRESET_TURN_LEFT_FIRST         "presetTurnLeftFirst"
+#define CFG_JSON_PRESET_TURN_LEFT_LAST          "presetTurnLeftLast"
+#define CFG_JSON_PRESET_TURN_LEFT_OFF           "presetTurnLeftOff"
 
-#define CFG_JSON_PRESET_TURN_RIGHT_FIRST    "presetTurnRightFirst"
-#define CFG_JSON_PRESET_TURN_RIGHT_LAST     "presetTurnRightLast"
-#define CFG_JSON_PRESET_TURN_RIGHT_OFF      "presetTurnRightOff"
+#define CFG_JSON_PRESET_TURN_RIGHT_FIRST        "presetTurnRightFirst"
+#define CFG_JSON_PRESET_TURN_RIGHT_LAST         "presetTurnRightLast"
+#define CFG_JSON_PRESET_TURN_RIGHT_OFF          "presetTurnRightOff"
 
-#define CFG_JSON_PRESET_TURN_BOTH_OFF       "presetTurnBothOff"
+#define CFG_JSON_PRESET_TURN_BOTH_OFF           "presetTurnBothOff"
 
-#define CFG_JSON_PRESET_HAZARD_FIRST        "presetHazardFirst"
-#define CFG_JSON_PRESET_HAZARD_LAST         "presetHazardLast"
-#define CFG_JSON_PRESET_HAZARD_OFF          "presetHazardOff"
+#define CFG_JSON_PRESET_HAZARD_FIRST            "presetHazardFirst"
+#define CFG_JSON_PRESET_HAZARD_LAST             "presetHazardLast"
+#define CFG_JSON_PRESET_HAZARD_OFF              "presetHazardOff"
 
-#define CFG_JSON_PRESET_WORKBLADE_STARTUP   "presetWorkbladeStartup"
-#define CFG_JSON_PRESET_WORKBLADE_FIRST     "presetWorkbladeFirst"
-#define CFG_JSON_PRESET_WORKBLADE_LAST      "presetWorkbladeLast"
-#define CFG_JSON_PRESET_WORKBLADE_OFF       "presetWorkbladeOff"
+#define CFG_JSON_PRESET_WORKBLADE_STARTUP       "presetWorkbladeStartup"
+#define CFG_JSON_PRESET_WORKBLADE_FIRST         "presetWorkbladeFirst"
+#define CFG_JSON_PRESET_WORKBLADE_LAST          "presetWorkbladeLast"
+#define CFG_JSON_PRESET_WORKBLADE_OFF           "presetWorkbladeOff"
 
 // Timing (how long to wait for something to happen).
-#define CFG_JSON_POWERUP_DELAY_MS           "powerupDelayMS"
-#define CFG_JSON_STARTUP_TIME_MS            "startupTimeMS"
-#define CFG_JSON_CONFIG_TIME_MS             "configTimeMS"
-#define CFG_JSON_TURNING_TIME_MS            "turningTimeMS"
-#define CFG_JSON_ANIMATION_TIME_MS          "animationTimeMS"
-#define CFG_JSON_HAZARD_TIME_MS             "hazardTimeMS"
-#define CFG_JSON_BRAKE_PULSE_TIME_MS        "brakePulseTimeMS"
+#define CFG_JSON_POWERUP_DELAY_MS               "powerupDelayMS"
+#define CFG_JSON_STARTUP_TIME_MS                "startupTimeMS"
+#define CFG_JSON_CONFIG_TIME_MS                 "configTimeMS"
+#define CFG_JSON_TURNING_TIME_MS                "turningTimeMS"
+#define CFG_JSON_ANIMATION_TIME_MS              "animationTimeMS"
+#define CFG_JSON_HAZARD_TIME_MS                 "hazardTimeMS"
+#define CFG_JSON_BRAKE_PULSE_TIME_MS            "brakePulseTimeMS"
 #define CFG_JSON_TURN_ON_BRAKE_TIME_MS          "turnOnBrakeTimeMS"
 #define CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS   "disallowBrakePulseTimeMS"
 
 // Button timing
-#define CFG_JSON_LONG_PRESS_TIME_MS         "longPressTimeMS"
-#define CFG_JSON_DEBOUNCE_TIME_MS           "debounceTimeMS"
-
-// Preset queue timing
-#define CFG_JSON_PRESET_QUEUE_TIME_MS       "presetQueueTimeMS"
+#define CFG_JSON_LONG_PRESS_TIME_MS             "longPressTimeMS"
+#define CFG_JSON_DEBOUNCE_TIME_MS               "debounceTimeMS"
+    
+// Preset queue timing  
+#define CFG_JSON_PRESET_QUEUE_TIME_MS           "presetQueueTimeMS"
 
 
 /*--------------------------------------------------------------------------*/
@@ -724,6 +724,8 @@ public:
 
             if (blinkerState == BLINKERS_OFF)
             {
+                // Only allow brake pulse pattern if not happening soon after
+                // a turn.
                 if ((brakePreset == presetBrakePulse) && (brakePulseAllowedTimer == 0))
                 {
                     // Start timer to know when to transition to normal brakes.
@@ -1137,11 +1139,11 @@ public:
 
                                 if (presetIsContinuous(turnLeftPreset) == true)
                                 {
-                                    turnOffTimeMS = turningTimeMS;
+                                    turnOffTimeMS = animationTimeMS; // Looping cycle
                                 }
                                 else
                                 {
-                                    turnOffTimeMS = animationTimeMS;
+                                    turnOffTimeMS = turningTimeMS; // One-shot cycle
                                 }
                             }
 
@@ -1233,11 +1235,11 @@ public:
 
                                 if (presetIsContinuous(turnRightPreset) == true)
                                 {
-                                    turnOffTimeMS = turningTimeMS;
+                                    turnOffTimeMS = animationTimeMS; // Looping cycle
                                 }
                                 else
                                 {
-                                    turnOffTimeMS = animationTimeMS;
+                                    turnOffTimeMS = turningTimeMS; // One shot cycle
                                 }
                             }
 
