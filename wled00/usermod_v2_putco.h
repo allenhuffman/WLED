@@ -228,7 +228,7 @@ bool presetIsSolid(int preset);
 #define CFG_JSON_PRESET_WORKBLADE_LAST          "presetWorkbladeLast"
 #define CFG_JSON_PRESET_WORKBLADE_OFF           "presetWorkbladeOff"
 
-#define CFG_JSON_CONTINUOUS_PRESETS             "continuousePresets"
+#define CFG_JSON_CONTINUOUS_PRESETS             "continuousPresets"
 #define CFG_JSON_SOLID_PRESETS                  "solidPresets"
 
 // Timing (how long to wait for something to happen).
