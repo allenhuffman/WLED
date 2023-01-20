@@ -1100,11 +1100,6 @@ public:
             switch (leftButtonStatus)
             {
                 case BUTTON_RELEASED:
-                    if ((brakingState == BRAKES_4WIRE_ON) &&
-                        (rightButtonStatus == BUTTON_RELEASED))
-                    {
-                        turnBrakesOff();
-                    }
                     // HACK for Walter.
                     if (blinkerState == BLINKERS_LEFT)
                     {
@@ -1112,6 +1107,11 @@ public:
                         {
                             turnLeftBlinkerOff();
                         }
+                    }
+                    if ((brakingState == BRAKES_4WIRE_ON) &&
+                        (rightButtonStatus == BUTTON_RELEASED))
+                    {
+                        turnBrakesOff();
                     }
                     break;
 
@@ -1143,17 +1143,24 @@ public:
                                 if (presetIsContinuous(turnLeftPreset) == true)
                                 {
                                     turnOffTimeMS = animationTimeMS; // Looping cycle
+                                    turnOffLeftBlinkerTimer = millis();
+
                                 }
-                                else
+                                else if (presetIsSolid(turnLeftPreset) == false)
                                 {
                                     turnOffTimeMS = turningTimeMS; // One-shot cycle
+                                    turnOffLeftBlinkerTimer = millis();
                                 }
                             }
-
-                            if (blinkerState == BLINKERS_LEFT)
+                            else if (blinkerState == BLINKERS_LEFT)
                             {
-                                // Start timer so we know when to shut it off.
-                                turnOffLeftBlinkerTimer = millis();
+                                if (presetIsContinuous(turnLeftPreset) == true)
+                                {
+                                    // Start timer so we know when to shut it off.
+                                    turnOffLeftBlinkerTimer = millis();
+                                    // Extend this timer, too.
+                                    brakePulseAllowedTimer = millis();
+                                }
                             }
 
                             leftButtonCounter = 0;
@@ -1196,11 +1203,6 @@ public:
             switch (rightButtonStatus)
             {
                 case BUTTON_RELEASED:
-                    if ((brakingState == BRAKES_4WIRE_ON) &&
-                        (leftButtonStatus == BUTTON_RELEASED))
-                    {
-                        turnBrakesOff();
-                    }
                     // HACK for Walter.
                     if (blinkerState == BLINKERS_RIGHT)
                     {
@@ -1208,6 +1210,11 @@ public:
                         {
                             turnRightBlinkerOff();
                         }
+                    }
+                    if ((brakingState == BRAKES_4WIRE_ON) &&
+                        (leftButtonStatus == BUTTON_RELEASED))
+                    {
+                        turnBrakesOff();
                     }
                     break;
 
@@ -1239,17 +1246,23 @@ public:
                                 if (presetIsContinuous(turnRightPreset) == true)
                                 {
                                     turnOffTimeMS = animationTimeMS; // Looping cycle
+                                    turnOffRightBlinkerTimer = millis();
                                 }
-                                else
+                                else if (presetIsSolid(turnRightPreset) == false)
                                 {
                                     turnOffTimeMS = turningTimeMS; // One shot cycle
+                                    turnOffRightBlinkerTimer = millis();
                                 }
                             }
-
-                            if (blinkerState == BLINKERS_RIGHT)
+                            else if (blinkerState == BLINKERS_RIGHT)
                             {
-                                // Start timer so we know when to shut it off.
-                                turnOffRightBlinkerTimer = millis();
+                                if (presetIsContinuous(turnRightPreset) == true)
+                                {
+                                    // Start timer so we know when to shut it off.
+                                    turnOffRightBlinkerTimer = millis();
+                                    // Extend this timer, too.
+                                    brakePulseAllowedTimer = millis();
+                                }
                             }
                             
                             rightButtonCounter = 0;
@@ -1976,12 +1989,12 @@ public:
         // Continuous and Solid presets
         for (int idx=0; idx < MAX_CONTINUOUS_PRESETS; idx++)
         {
-            configComplete &= getJsonValue(top[CFG_JSON_CONTINUOUS_PRESETS][idx], continuousPresets[idx], -1);
+            configComplete &= getJsonValue(top[CFG_JSON_CONTINUOUS_PRESETS][idx], continuousPresets[idx]); //, -1);
         }
 
         for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
         {
-            configComplete &= getJsonValue(top[CFG_JSON_SOLID_PRESETS][idx], solidPresets[idx], -1);
+            configComplete &= getJsonValue(top[CFG_JSON_SOLID_PRESETS][idx], solidPresets[idx]); //, -1);
         }
 
         // Correct any bad values.
