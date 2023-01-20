@@ -228,6 +228,9 @@ bool presetIsSolid(int preset);
 #define CFG_JSON_PRESET_WORKBLADE_LAST          "presetWorkbladeLast"
 #define CFG_JSON_PRESET_WORKBLADE_OFF           "presetWorkbladeOff"
 
+#define CFG_JSON_CONTINUOUS_PRESETS             "continuousePresets"
+#define CFG_JSON_SOLID_PRESETS                  "solidPresets"
+
 // Timing (how long to wait for something to happen).
 #define CFG_JSON_POWERUP_DELAY_MS               "powerupDelayMS"
 #define CFG_JSON_STARTUP_TIME_MS                "startupTimeMS"
@@ -1840,14 +1843,18 @@ public:
         // Preset queue timing
         top[CFG_JSON_PRESET_QUEUE_TIME_MS] = presetQueueTimeMS;
 
+        // JsonArray pinArray = top.createNestedArray("pin");
+        // pinArray.add(testPins[0]);
+        // pinArray.add(testPins[1]); 
+
         // Continuous and Solid presets
-        JsonArray continuousPresetArray = top.createNestedArray("continuousPresets");
+        JsonArray continuousPresetArray = top.createNestedArray(CFG_JSON_CONTINUOUS_PRESETS);
         for (int idx=0; idx < MAX_CONTINUOUS_PRESETS; idx++)
         {
             continuousPresetArray.add(continuousPresets[idx]);
         }
 
-        JsonArray solidPresetArray = top.createNestedArray("solidPresets");
+        JsonArray solidPresetArray = top.createNestedArray(CFG_JSON_SOLID_PRESETS);
         for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
         {
             solidPresetArray.add(solidPresets[idx]);
@@ -1963,15 +1970,18 @@ public:
         // Preset queue time
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_QUEUE_TIME_MS], presetQueueTimeMS, DEFAULT_PRESET_QUEUE_TIME_MS);
 
+        // configComplete &= getJsonValue(top["pin"][0], testPins[0], -1);
+        // configComplete &= getJsonValue(top["pin"][1], testPins[1], -1);
+
         // Continuous and Solid presets
         for (int idx=0; idx < MAX_CONTINUOUS_PRESETS; idx++)
         {
-            configComplete &= getJsonValue(top["continuousePresets"][idx], continuousPresets[idx], -1);
+            configComplete &= getJsonValue(top[CFG_JSON_CONTINUOUS_PRESETS][idx], continuousPresets[idx], -1);
         }
 
         for (int idx=0; idx < MAX_SOLID_PRESETS; idx++)
         {
-            configComplete &= getJsonValue(top["solidPresets"][idx], solidPresets[idx], -1);
+            configComplete &= getJsonValue(top[CFG_JSON_SOLID_PRESETS][idx], solidPresets[idx], -1);
         }
 
         // Correct any bad values.
