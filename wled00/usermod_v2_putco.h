@@ -216,10 +216,11 @@ bool presetIsSolid(int preset);
 #define CFG_JSON_PRESET_HAZARD_LAST             "presetHazardLast"
 #define CFG_JSON_PRESET_HAZARD_OFF              "presetHazardOff"
 
-#define CFG_JSON_PRESET_WORKBLADE_STARTUP       "presetWorkbladeStartup"
 #define CFG_JSON_PRESET_WORKBLADE_FIRST         "presetWorkbladeFirst"
 #define CFG_JSON_PRESET_WORKBLADE_LAST          "presetWorkbladeLast"
 #define CFG_JSON_PRESET_WORKBLADE_OFF           "presetWorkbladeOff"
+// Here, because it cannot be changed by the user.
+#define CFG_JSON_PRESET_WORKBLADE_STARTUP       "presetWorkbladeStartup"
 
 #define CFG_JSON_CONTINUOUS_PRESETS             "continuousPresets"
 #define CFG_JSON_SOLID_PRESETS                  "solidPresets"
@@ -312,8 +313,6 @@ private:
     int turnRightPreset = DEFAULT_TURN_RIGHT_PRESET;
     int hazardPreset = DEFAULT_HAZARD_PRESET;
     int workbladePreset = DEFAULT_WORKBLADE_PRESET;
-    // Different, because there is only one of these.
-    int workbladeStartupPreset = DEFAULT_PRESET_WORKBLADE_STARTUP;
 
     // Button mapping
     int buttonRunning = DEFAULT_BUTTON_RUNNING;
@@ -857,10 +856,10 @@ public:
                     workbladePreset = presetWorkbladeFirst;
                 }
 
-                if (workbladeStartupPreset != 0)
+                if (presetWorkbladeStartup != 0)
                 {
                     // Play the workblade STARTUP preset.
-                    addPresetToQueue(workbladeStartupPreset);
+                    addPresetToQueue(presetWorkbladeStartup);
                 }
                 else
                 {
@@ -1795,7 +1794,7 @@ public:
         JsonObject top = root.createNestedObject(CONFIG_SECTION_NAME);
         // save these vars persistently whenever settings are saved
 
-        // Preset defaults
+        // User Preset defaults
         top[CFG_JSON_BRAKE] = brakePreset;
         top[CFG_JSON_REVERSE] = reversePreset;
         top[CFG_JSON_RUNNING] = runningPreset;
@@ -1816,6 +1815,7 @@ public:
         // Presets
         top[CFG_JSON_PRESET_ALL_OFF] = presetAllOff;
 
+        // Brake Config
         top[CFG_JSON_PRESET_BRAKE_FIRST] = presetBrakeFirst;
         top[CFG_JSON_PRESET_BRAKE_LAST] = presetBrakeLast;
         top[CFG_JSON_PRESET_BRAKE_LEFT] = presetBrakeLeft;
@@ -1823,35 +1823,42 @@ public:
         top[CFG_JSON_PRESET_BRAKES_OFF] = presetBrakesOff;
         top[CFG_JSON_PRESET_BRAKE_PULSE] = presetBrakePulse;
 
+        // Reverse Config
         top[CFG_JSON_PRESET_REVERSE_FIRST] = presetReverseFirst;
         top[CFG_JSON_PRESET_REVERSE_LAST] = presetReverseLast;
         top[CFG_JSON_PRESET_REVERSE_OFF] = presetReverseOff;
 
+        // Running Config
         top[CFG_JSON_PRESET_RUNNING_FIRST] = presetRunningFirst;
         top[CFG_JSON_PRESET_RUNNING_LAST] = presetRunningLast;
         top[CFG_JSON_PRESET_RUNNING_OFF] = presetRunningOff;
 
+        // Startup Config
         top[CFG_JSON_PRESET_STARTUP_FIRST] = presetStartupFirst;
         top[CFG_JSON_PRESET_STARTUP_LAST] = presetStartupLast;
 
+        // Turn Left Config
         top[CFG_JSON_PRESET_TURN_LEFT_FIRST] = presetTurnLeftFirst;
         top[CFG_JSON_PRESET_TURN_LEFT_LAST] = presetTurnLeftLast;
         top[CFG_JSON_PRESET_TURN_LEFT_OFF] = presetTurnLeftOff;
 
+        // Turn Right Config
         top[CFG_JSON_PRESET_TURN_RIGHT_FIRST] = presetTurnRightFirst;
         top[CFG_JSON_PRESET_TURN_RIGHT_LAST] = presetTurnRightLast;
         top[CFG_JSON_PRESET_TURN_RIGHT_OFF] = presetTurnRightOff;
-
         top[CFG_JSON_PRESET_TURN_BOTH_OFF] = presetTurnBothOff;
 
+        // Hazard Config
         top[CFG_JSON_PRESET_HAZARD_FIRST] = presetHazardFirst;
         top[CFG_JSON_PRESET_HAZARD_LAST] = presetHazardLast;
         top[CFG_JSON_PRESET_HAZARD_OFF] = presetHazardOff;
 
-        top[CFG_JSON_PRESET_WORKBLADE_STARTUP] = presetWorkbladeStartup;
+        // Workblade Config
         top[CFG_JSON_PRESET_WORKBLADE_FIRST] = presetWorkbladeFirst;
         top[CFG_JSON_PRESET_WORKBLADE_LAST] = presetWorkbladeLast;
         top[CFG_JSON_PRESET_WORKBLADE_OFF] = presetWorkbladeOff;
+        // Here, because it cannot be changed by the user.
+        top[CFG_JSON_PRESET_WORKBLADE_STARTUP] = presetWorkbladeStartup;
 
         // Time values
         top[CFG_JSON_POWERUP_DELAY_MS] = powerupDelayMS;
@@ -1921,7 +1928,7 @@ public:
 
         // A 3-argument getJsonValue() assigns the 3rd argument as a default value if the Json value is missing
 
-        // Preset Defaults
+        // User Presets Defaults
         configComplete &= getJsonValue(top[CFG_JSON_BRAKE], brakePreset, DEFAULT_BRAKE_PRESET);
         configComplete &= getJsonValue(top[CFG_JSON_REVERSE], reversePreset, DEFAULT_REVERSE_PRESET);
         configComplete &= getJsonValue(top[CFG_JSON_RUNNING], runningPreset, DEFAULT_RUNNING_PRESET);
@@ -1929,9 +1936,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_TURN_LEFT], turnLeftPreset, DEFAULT_TURN_LEFT_PRESET);
         configComplete &= getJsonValue(top[CFG_JSON_TURN_RIGHT], turnRightPreset, DEFAULT_TURN_RIGHT_PRESET);
         configComplete &= getJsonValue(top[CFG_JSON_HAZARD], hazardPreset, DEFAULT_HAZARD_PRESET);
-
-        // Different, because there is only one of these.
-        configComplete &= getJsonValue(top[CFG_JSON_WORKBLADE], workbladeStartupPreset, DEFAULT_PRESET_WORKBLADE_STARTUP);
+        configComplete &= getJsonValue(top[CFG_JSON_WORKBLADE], workbladePreset, DEFAULT_WORKBLADE_PRESET);
 
         // Buttons
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_RUNNING], buttonBrake, DEFAULT_BUTTON_BRAKE);
@@ -1944,6 +1949,7 @@ public:
         // Presets
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_ALL_OFF], presetAllOff, DEFAULT_PRESET_ALL_OFF);
 
+        // Brake Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_FIRST], presetBrakeFirst, DEFAULT_PRESET_BRAKE_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_LAST], presetBrakeLast, DEFAULT_PRESET_BRAKE_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_LEFT], presetBrakeLeft, DEFAULT_PRESET_BRAKE_LEFT);
@@ -1951,37 +1957,44 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKES_OFF], presetBrakesOff, DEFAULT_PRESET_BRAKES_OFF);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_PULSE], presetBrakePulse, DEFAULT_PRESET_BRAKE_PULSE);
 
+        // Reverse Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_REVERSE_FIRST], presetReverseFirst, DEFAULT_PRESET_REVERSE_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_REVERSE_LAST], presetReverseLast, DEFAULT_PRESET_REVERSE_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_REVERSE_OFF], presetReverseOff, DEFAULT_PRESET_REVERSE_OFF);
 
+        // Running Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_RUNNING_FIRST], presetRunningFirst, DEFAULT_PRESET_RUNNING_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_RUNNING_LAST], presetRunningLast, DEFAULT_PRESET_RUNNING_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_RUNNING_OFF], presetRunningOff, DEFAULT_PRESET_RUNNING_OFF);
 
+        // Startup Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_STARTUP_FIRST], presetStartupFirst, DEFAULT_PRESET_STARTUP_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_STARTUP_LAST], presetStartupLast, DEFAULT_PRESET_STARTUP_LAST);
 
+        // Turn Left Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_TURN_LEFT_FIRST], presetTurnLeftFirst, DEFAULT_PRESET_TURN_LEFT_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_TURN_LEFT_LAST], presetTurnLeftLast, DEFAULT_PRESET_TURN_LEFT_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_TURN_LEFT_OFF], presetTurnLeftOff, DEFAULT_PRESET_TURN_LEFT_OFF);
 
+        // Turn Right Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_TURN_RIGHT_FIRST], presetTurnRightFirst, DEFAULT_PRESET_TURN_RIGHT_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_TURN_RIGHT_LAST], presetTurnRightLast, DEFAULT_PRESET_TURN_RIGHT_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_TURN_RIGHT_OFF], presetTurnRightOff, DEFAULT_PRESET_TURN_RIGHT_OFF);
-
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_TURN_BOTH_OFF], presetTurnBothOff, DEFAULT_PRESET_TURN_BOTH_OFF);
 
+        // Hazard Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_HAZARD_FIRST], presetHazardFirst, DEFAULT_PRESET_HAZARD_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_HAZARD_LAST], presetHazardLast, DEFAULT_PRESET_HAZARD_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_HAZARD_OFF], presetHazardOff, DEFAULT_PRESET_HAZARD_OFF);
 
-        configComplete &= getJsonValue(top[CFG_JSON_PRESET_WORKBLADE_STARTUP], presetWorkbladeStartup, DEFAULT_PRESET_WORKBLADE_STARTUP);
+        // Workblade Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_WORKBLADE_FIRST], presetWorkbladeFirst, DEFAULT_PRESET_WORKBLADE_FIRST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_WORKBLADE_LAST], presetWorkbladeLast, DEFAULT_PRESET_WORKBLADE_LAST);
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_WORKBLADE_OFF], presetWorkbladeOff, DEFAULT_PRESET_WORKBLADE_OFF);
+         // Here, because it cannot be changed by the user.
+        configComplete &= getJsonValue(top[CFG_JSON_PRESET_WORKBLADE_STARTUP], presetWorkbladeStartup, DEFAULT_PRESET_WORKBLADE_STARTUP);
 
-        // Times
+        // Time values
         configComplete &= getJsonValue(top[CFG_JSON_POWERUP_DELAY_MS], powerupDelayMS, DEFAULT_POWERUP_DELAY_MS);
         configComplete &= getJsonValue(top[CFG_JSON_STARTUP_TIME_MS], startupTimeMS, DEFAULT_STARTUP_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_CONFIG_TIME_MS], configTimeMS, DEFAULT_CONFIG_TIME_MS);
@@ -2055,8 +2068,7 @@ public:
             workbladePreset = presetWorkbladeFirst;
         }
         
-        // Only one workblade startup, if in use.
-        //if (workbladeStartupPreset < presetWorkbladeStartupFirst) workbladeStartupPreset = presetWorkbladeStartupFirst;
+        // Only one workblade startup, if in use. Allow any Preset value.
 
         return configComplete;
     }
