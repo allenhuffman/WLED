@@ -1,13 +1,5 @@
 //#define BUILD_FOR_WOKWI
 
-/*
-TODO:
-
-1) "rising edge/falling edge"
-2) "rising edge/falling edge/timer"
-3) "rising edge/timer"
-*/
-
 #pragma once
 
 #if !defined(BUILD_FOR_WOKWI)
@@ -131,6 +123,7 @@ bool presetIsSolid(int preset);
 #define DEFAULT_BRAKE_PULSE_TIME_MS         250
 #define DEFAULT_TURN_ON_BRAKE_TIME_MS           500
 #define DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS    800
+#define DEFAULT_TURN_SYNC_DELAY_TIME_MS     20
 
 // Button timing
 #define DEFAULT_DEBOUNCE_TIME_MS            50  // only consider button input of at least 50ms as valid (debouncing)
@@ -241,6 +234,7 @@ bool presetIsSolid(int preset);
 #define CFG_JSON_BRAKE_PULSE_TIME_MS            "brakePulseTimeMS"
 #define CFG_JSON_TURN_ON_BRAKE_TIME_MS          "turnOnBrakeTimeMS"
 #define CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS   "disallowBrakePulseTimeMS"
+#define CFG_JSON_TURN_SYNC_DELAY_TIME_MS        "turnSyncDelayTimeMS"
 
 // Button timing
 #define CFG_JSON_LONG_PRESS_TIME_MS             "longPressTimeMS"
@@ -388,6 +382,7 @@ private:
     int brakePulseTimeMS = DEFAULT_BRAKE_PULSE_TIME_MS;
     int turnOnBrakeTimeMS = DEFAULT_TURN_ON_BRAKE_TIME_MS;
     int disallowBreakPulseTimeMS = DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS;
+    int turnSyncDelayTimeMS = DEFAULT_TURN_SYNC_DELAY_TIME_MS;
 
     // Button times
     int debounceTimeMS = DEFAULT_DEBOUNCE_TIME_MS;
@@ -410,6 +405,8 @@ private:
     unsigned long turnOnLeftBrakeTimer = 0;
     unsigned long turnOnRightBrakeTimer = 0;
     unsigned long brakePulseAllowedTimer = 0;
+    unsigned long leftTurnSyncTimer = 0;
+    unsigned long rightTurnSyncTimer = 0;
 
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
 
@@ -1129,7 +1126,14 @@ public:
                     if ((rightButtonStatus == BUTTON_RELEASED) ||
                         (rightButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        if (leftButtonCounter++ > 20)
+                        // Start timer if necessary.
+                        if (leftTurnSyncTimer == 0)
+                        {
+                            leftTurnSyncTimer = millis();
+                        }
+                
+                        //if (leftButtonCounter++ > 20)
+                        if ((leftTurnSyncTimer != 0) && (millis() - leftTurnSyncTimer > turnSyncDelayTimeMS))
                         {
                             // if (blinkerState == BLINKERS_RIGHT)
                             // {
@@ -1163,12 +1167,14 @@ public:
                                 }
                             }
 
-                            leftButtonCounter = 0;
+                            leftTurnSyncTimer = 0; // Disable.
+                            //leftButtonCounter = 0;
                         }
                     }
                     else
                     {
-                        leftButtonCounter = 0;  
+                        leftTurnSyncTimer = 0; // Disable.  
+                        //leftButtonCounter = 0;
                     }
                     break;
               
@@ -1232,7 +1238,14 @@ public:
                     if ((leftButtonStatus == BUTTON_RELEASED) ||
                         (leftButtonStatus == BUTTON_LONG_PRESS))
                     {
-                        if (rightButtonCounter++ > 20)
+                        // Start timer if necessary.
+                        if (rightTurnSyncTimer == 0)
+                        {
+                            rightTurnSyncTimer = millis();
+                        }
+                
+                        //if (rightButtonCounter++ > 20)
+                        if ((rightTurnSyncTimer != 0) && (millis() - rightTurnSyncTimer > turnSyncDelayTimeMS))
                         {
                             // if (blinkerState == BLINKERS_RIGHT)
                             // {
@@ -1265,12 +1278,14 @@ public:
                                 }
                             }
                             
-                            rightButtonCounter = 0;
+                            rightTurnSyncTimer = 0; // Disable.
+                            //rightButtonCounter = 0;
                         }
                     }
                     else
                     {
-                        rightButtonCounter = 0;
+                        rightTurnSyncTimer = 0; // Disable.
+                        //rightButtonCounter = 0;
                     }
                     break;
 
@@ -1848,6 +1863,7 @@ public:
         top[CFG_JSON_BRAKE_PULSE_TIME_MS] = brakePulseTimeMS;
         top[CFG_JSON_TURN_ON_BRAKE_TIME_MS] = turnOnBrakeTimeMS;
         top[CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS] = disallowBreakPulseTimeMS;
+        top[CFG_JSON_TURN_SYNC_DELAY_TIME_MS] = turnSyncDelayTimeMS;
 
         // Button times
         top[CFG_JSON_DEBOUNCE_TIME_MS] = debounceTimeMS;
@@ -1975,6 +1991,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_BRAKE_PULSE_TIME_MS], brakePulseTimeMS, DEFAULT_BRAKE_PULSE_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_TURN_ON_BRAKE_TIME_MS], turnOnBrakeTimeMS, DEFAULT_TURN_ON_BRAKE_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS], disallowBreakPulseTimeMS, DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS);
+        configComplete &= getJsonValue(top[CFG_JSON_TURN_SYNC_DELAY_TIME_MS], turnSyncDelayTimeMS, DEFAULT_TURN_SYNC_DELAY_TIME_MS);
 
         // Button times
         configComplete &= getJsonValue(top[CFG_JSON_DEBOUNCE_TIME_MS], debounceTimeMS, DEFAULT_DEBOUNCE_TIME_MS);
