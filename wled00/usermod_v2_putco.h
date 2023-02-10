@@ -110,7 +110,7 @@ bool presetIsSolid(int preset);
 
 // TIMING: Default timing values.
 #if defined(BUILD_FOR_WOKWI)
-#define DEFAULT_POWERUP_DELAY_MS            1000
+#define DEFAULT_POWERUP_DELAY_MS            10000
 #define DEFAULT_STARTUP_TIME_MS             1000
 #else
 #define DEFAULT_POWERUP_DELAY_MS            5000
@@ -275,6 +275,10 @@ bool presetIsSolid(int preset);
 #define BRAKES_4WIRE_ON             1
 #define BRAKES_5WIRE_ON             2
 
+// STATE_RUNNING - RUNNING modes:
+#define RUNNING_OFF                 0
+#define RUNNING_ON                  1
+
 
 /*--------------------------------------------------------------------------*/
 // Other stuff for the code to work.
@@ -418,6 +422,7 @@ private:
     // Light states
     int blinkerState = BLINKERS_OFF;
     int brakingState = BRAKES_OFF;
+    int runningState = RUNNING_OFF;
 
     // CONFIG state machine
     int configState = 0;
@@ -804,12 +809,18 @@ public:
         if (brakingState == BRAKES_OFF)
         {
             addPresetToQueue(runningPreset);
+
+            runningState = RUNNING_ON;
         }
     }
     
     void turnRunningLightsOff()
     {
         // No such thing.
+        // TODO: RUNNING OFF PRESET!
+        addPresetToQueue(presetAllOff);
+
+        runningState = RUNNING_OFF;
     }
 
     /*----------------------------------------------------------------------*/
@@ -824,8 +835,10 @@ public:
             powerupDelayTimer = millis();
         }
 
+        // Stay in this mode until Running input is seen, or...
         // Stay in this mode until time has elapsed.
-        if ((powerupDelayTimer != 0) && (millis() - powerupDelayTimer > powerupDelayMS))
+        if ((getLastPolledButtonStatus(buttonRunning) != BUTTON_RELEASED) ||
+            ((powerupDelayTimer != 0) && (millis() - powerupDelayTimer > powerupDelayMS)))
         {
             powerupDelayTimer = 0; // turn off
 
@@ -1004,6 +1017,27 @@ public:
             {
                 turnRightBlinkerOff();
             }
+        }
+
+        /*--------------------------------------------------------------*/
+        // Button 0 - Running
+        /*--------------------------------------------------------------*/
+        switch (getLastPolledButtonStatus(buttonRunning))
+        {
+            // case BUTTON_PRESSED:
+            // case BUTTON_SHORT_PRESS:
+            // case BUTTON_LONG_PRESS:
+            //     break;
+            
+            case BUTTON_RELEASED:
+                if (runningState != RUNNING_OFF)
+                {
+                    turnRunningLightsOff();
+                }
+                break;
+            
+            default:
+                break;
         }
 
         /*--------------------------------------------------------------*/
