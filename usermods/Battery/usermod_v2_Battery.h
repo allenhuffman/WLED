@@ -93,6 +93,7 @@ class UsermodBattery : public Usermod
     void lowPowerIndicator()
     {
       if (!lowPowerIndicatorEnabled) return;
+      if (batteryPin < 0) return;  // no measurement
       if (lowPowerIndicationDone && lowPowerIndicatorReactivationThreshold <= batteryLevel) lowPowerIndicationDone = false;
       if (lowPowerIndicatorThreshold <= batteryLevel) return;
       if (lowPowerIndicationDone) return;
@@ -130,6 +131,8 @@ class UsermodBattery : public Usermod
         if (!success) {
           DEBUG_PRINTLN(F("Battery pin allocation failed."));
           batteryPin = -1;  // allocation failed
+        } else {
+          pinMode(batteryPin, INPUT);
         }
       #else //ESP8266 boards have only one analog input pin A0
 
@@ -168,22 +171,49 @@ class UsermodBattery : public Usermod
 
       nextReadTime = millis() + readingInterval;
       lastReadTime = millis();
+
+      if (batteryPin < 0) return;  // nothing to read
+
       initializing = false;
 
+#ifdef ARDUINO_ARCH_ESP32
+      // use calibrated millivolts analogread on esp32 (150 mV ~ 2450 mV)
+      rawValue = analogReadMilliVolts(batteryPin);
+      // calculate the voltage
+      voltage = (rawValue / 1000.0f) + calibration;
+      // usually a voltage divider (50%) is used on ESP32, so we need to multiply by 2
+      voltage *= 2.0f;
+#else
       // read battery raw input
       rawValue = analogRead(batteryPin);
 
       // calculate the voltage     
       voltage = ((rawValue / getAdcPrecision()) * maxBatteryVoltage) + calibration;
-      // check if voltage is within specified voltage range
-      voltage = voltage<minBatteryVoltage||voltage>maxBatteryVoltage?-1.0f:voltage;
+#endif
+      // check if voltage is within specified voltage range, allow 10% over/under voltage
+      voltage = ((voltage < minBatteryVoltage * 0.85f) || (voltage > maxBatteryVoltage * 1.1f)) ? -1.0f : voltage;
 
       // translate battery voltage into percentage
       /*
         the standard "map" function doesn't work
         https://www.arduino.cc/reference/en/language/functions/math/map/  notes and warnings at the bottom
       */
-      batteryLevel = mapf(voltage, minBatteryVoltage, maxBatteryVoltage, 0, 100);
+      #ifdef USERMOD_BATTERY_USE_LIPO
+        batteryLevel = mapf(voltage, minBatteryVoltage, maxBatteryVoltage, 0, 100); // basic mapping
+        // LiPo batteries have a differnt dischargin curve, see 
+        //  https://blog.ampow.com/lipo-voltage-chart/
+        if (batteryLevel < 40.0f) 
+          batteryLevel = mapf(batteryLevel, 0, 40, 0, 12);       // last 45% -> drops very quickly
+        else {
+          if (batteryLevel < 90.0f)
+            batteryLevel = mapf(batteryLevel, 40, 90, 12, 95);   // 90% ... 40% -> almost linear drop
+          else // level >  90%
+            batteryLevel = mapf(batteryLevel, 90, 105, 95, 100); // highest 15% -> drop slowly
+        }
+      #else
+        batteryLevel = mapf(voltage, minBatteryVoltage, maxBatteryVoltage, 0, 100);
+      #endif
+      if (voltage > -1.0f) batteryLevel = constrain(batteryLevel, 0.0f, 110.0f);
 
       // if (calculateTimeLeftEnabled) {
       //   float currentBatteryCapacity = totalBatteryCapacity;
@@ -194,13 +224,15 @@ class UsermodBattery : public Usermod
       if (autoOffEnabled && (autoOffThreshold >= batteryLevel))
         turnOff();
 
+#ifndef WLED_DISABLE_MQTT
       // SmartHome stuff
       // still don't know much about MQTT and/or HA
       if (WLED_MQTT_CONNECTED) {
         char buf[64]; // buffer for snprintf()
-        snprintf_P(buf, 63, PSTR("/voltage"), mqttDeviceTopic);
+        snprintf_P(buf, 63, PSTR("%s/voltage"), mqttDeviceTopic);
         mqtt->publish(buf, 0, false, String(voltage).c_str());
       }
+#endif
 
     }
 
@@ -213,6 +245,13 @@ class UsermodBattery : public Usermod
     {
       JsonObject user = root["u"];
       if (user.isNull()) user = root.createNestedObject("u");
+
+      if (batteryPin < 0) {
+        JsonArray infoVoltage = user.createNestedArray(F("Battery voltage"));
+        infoVoltage.add(F("n/a"));
+        infoVoltage.add(F(" invalid GPIO"));
+        return;  // no GPIO - nothing to report
+      }
 
       // info modal display names
       JsonArray infoPercentage = user.createNestedArray(F("Battery level"));
@@ -316,7 +355,7 @@ class UsermodBattery : public Usermod
     {
       JsonObject battery = root.createNestedObject(FPSTR(_name));           // usermodname
       #ifdef ARDUINO_ARCH_ESP32
-        battery["pin"] = batteryPin;
+        battery[F("pin")] = batteryPin;
       #endif
 
       // battery[F("time-left")] = calculateTimeLeftEnabled;
@@ -393,11 +432,11 @@ class UsermodBattery : public Usermod
       }
 
       #ifdef ARDUINO_ARCH_ESP32
-        newBatteryPin     = battery[F("pin"] | newBatteryPin;
+        newBatteryPin     = battery[F("pin")] | newBatteryPin;
       #endif
       // calculateTimeLeftEnabled = battery[F("time-left")] | calculateTimeLeftEnabled;
-      setMinBatteryVoltage(battery[F("min-Voltage")] | minBatteryVoltage);
-      setMaxBatteryVoltage(battery[F("max-Voltage")] | maxBatteryVoltage);
+      setMinBatteryVoltage(battery[F("min-voltage")] | minBatteryVoltage);
+      setMaxBatteryVoltage(battery[F("max-voltage")] | maxBatteryVoltage);
       setTotalBatteryCapacity(battery[F("capacity")] | totalBatteryCapacity);
       setCalibration(battery[F("calibration")] | calibration);
       setReadingInterval(battery[FPSTR(_readInterval)] | readingInterval);
@@ -419,18 +458,18 @@ class UsermodBattery : public Usermod
         if (!initDone) 
         {
           // first run: reading from cfg.json
-          newBatteryPin = batteryPin;
+          batteryPin = newBatteryPin;
           DEBUG_PRINTLN(F(" config loaded."));
         } 
         else 
         {
           DEBUG_PRINTLN(F(" config (re)loaded."));
 
-          // changing paramters from settings page
+          // changing parameters from settings page
           if (newBatteryPin != batteryPin) 
           {
             // deallocate pin
-            pinManager.deallocatePin(batteryPin);
+            pinManager.deallocatePin(batteryPin, PinOwner::UM_Battery);
             batteryPin = newBatteryPin;
             // initialise
             setup();
@@ -534,7 +573,11 @@ class UsermodBattery : public Usermod
      */
     void setMaxBatteryVoltage(float voltage)
     {
-      maxBatteryVoltage = max(getMinBatteryVoltage()+1.0f, voltage);
+      #ifdef USERMOD_BATTERY_USE_LIPO
+        maxBatteryVoltage = max(getMinBatteryVoltage()+0.7f, voltage);
+      #else
+        maxBatteryVoltage = max(getMinBatteryVoltage()+1.0f, voltage);
+      #endif
     }
 
 
@@ -561,7 +604,7 @@ class UsermodBattery : public Usermod
     {
       #ifdef ARDUINO_ARCH_ESP32
         // esp32
-        return 4095.0f;
+        return 4096.0f;
       #else
         // esp8266
         return 1024.0f;
