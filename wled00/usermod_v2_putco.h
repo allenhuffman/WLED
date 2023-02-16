@@ -35,6 +35,7 @@ int getLastPolledTwoButtonStatus(uint8_t btn1, uint8_t btn2);
 // TODO: Add the rest
 void turnBrakesOn(int);
 void turnRunningLightsOn(void);
+void turnRunningLightsOff(void);
 
 bool presetIsContinuous(int preset);
 bool presetIsSolid(int preset);
@@ -110,7 +111,7 @@ bool presetIsSolid(int preset);
 
 // TIMING: Default timing values.
 #if defined(BUILD_FOR_WOKWI)
-#define DEFAULT_POWERUP_DELAY_MS            10000
+#define DEFAULT_POWERUP_DELAY_MS            4000
 #define DEFAULT_STARTUP_TIME_MS             1000
 #else
 #define DEFAULT_POWERUP_DELAY_MS            5000
@@ -757,13 +758,15 @@ public:
         }
 
         brakingState = state;
+
+        // Hack: This will override Running Lights.
+        runningState = RUNNING_OFF;
     }
 
     void turnBrakesOff()
     {
         brakingState = BRAKES_OFF;
 
-        // TODO: do we EVER send brakes off?
         if (blinkerState == BLINKERS_LEFT)
         {
             // Turn off right blinker segment.
@@ -784,6 +787,10 @@ public:
         if (getLastPolledButtonStatus(buttonRunning) != BUTTON_RELEASED)
         {
             turnRunningLightsOn();
+        }
+        else
+        {
+            turnRunningLightsOff();
         }
     }
 
@@ -820,9 +827,8 @@ public:
     void turnRunningLightsOff()
     {
         // No such thing.
-        // TODO: RUNNING OFF PRESET!
-        addPresetToQueue(presetAllOff);
-
+        addPresetToQueue(presetRunningOff);
+        
         runningState = RUNNING_OFF;
     }
 
@@ -1025,10 +1031,14 @@ public:
         /*--------------------------------------------------------------*/
         switch (getLastPolledButtonStatus(buttonRunning))
         {
-            // case BUTTON_PRESSED:
-            // case BUTTON_SHORT_PRESS:
-            // case BUTTON_LONG_PRESS:
-            //     break;
+            case BUTTON_PRESSED:
+            case BUTTON_SHORT_PRESS:
+            case BUTTON_LONG_PRESS:
+                if (runningState == RUNNING_OFF)
+                {
+                    turnRunningLightsOn();
+                }
+                break;
             
             case BUTTON_RELEASED:
                 if (runningState != RUNNING_OFF)
@@ -1072,6 +1082,12 @@ public:
                     turnLeftAndRightBlinkersOff();
                     // Turn hazard mode off.
                     turnOffHazardsTimer = 0;
+
+                }
+                // NEW TEST CODE
+                if (brakingState == BRAKES_4WIRE_ON)
+                {
+                    turnBrakesOff();
                 }
                 break;
             
@@ -1080,7 +1096,6 @@ public:
                 {
                     if (blinkerState != BLINKERS_HAZARD)
                     {
-                        DEBUG_PRINT("e");
                         turnBrakesOn(BRAKES_4WIRE_ON);
                     }
                     else
@@ -1218,13 +1233,11 @@ public:
                     {
                         if (blinkerState != BLINKERS_HAZARD)
                         {
-                            DEBUG_PRINT("?");
                             turnBrakesOn(BRAKES_4WIRE_ON);
                         }
                         else
                         {
                             // Flag so they turn on when hazards end.
-                            DEBUG_PRINT("1");
                             brakingState = BRAKES_4WIRE_ON;
                             turnHazardsOff();
                         }
@@ -1329,13 +1342,11 @@ public:
                     {
                         if (blinkerState != BLINKERS_HAZARD)
                         {
-                            DEBUG_PRINT("f");
                             turnBrakesOn(BRAKES_4WIRE_ON);
                         }
                         else
                         {
                             // Flag so they turn on when hazards end.
-                            DEBUG_PRINT("2");
                             brakingState = BRAKES_4WIRE_ON;
                             turnHazardsOff();
                         }
