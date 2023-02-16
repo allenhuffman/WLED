@@ -781,7 +781,10 @@ public:
         }
 
         // TODO: Do we need to do this here?
-        turnRunningLightsOn();
+        if (getLastPolledButtonStatus(buttonRunning) != BUTTON_RELEASED)
+        {
+            turnRunningLightsOn();
+        }
     }
 
     void turnReverseLightsOn()
@@ -835,10 +838,8 @@ public:
             powerupDelayTimer = millis();
         }
 
-        // Stay in this mode until Running input is seen, or...
         // Stay in this mode until time has elapsed.
-        if ((getLastPolledButtonStatus(buttonRunning) != BUTTON_RELEASED) ||
-            ((powerupDelayTimer != 0) && (millis() - powerupDelayTimer > powerupDelayMS)))
+        if ((powerupDelayTimer != 0) && (millis() - powerupDelayTimer > powerupDelayMS))
         {
             powerupDelayTimer = 0; // turn off
 
@@ -933,13 +934,13 @@ public:
             // state (either because it's the first time and they
             // have never been turned on, or we went in to another
             // state that turned them off).
-            if (brakingState == BRAKES_OFF)
-            {
-                turnRunningLightsOn();
-            }
-            else
+            if (brakingState != BRAKES_OFF)
             {
                 turnBrakesOn(brakingState);
+            }
+            else if (getLastPolledButtonStatus(buttonRunning) != BUTTON_RELEASED)
+            {
+                turnRunningLightsOn();
             }
         }
 
