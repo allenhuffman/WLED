@@ -635,6 +635,9 @@ public:
         turnOnLeftBrakeTimer = 0; // cancel
 
         brakePulseAllowedTimer = millis();
+
+        // Overrides Running Lights
+        runningState = RUNNING_OFF;
     }
 
     void turnLeftBlinkerOff()
@@ -661,6 +664,9 @@ public:
         turnOnRightBrakeTimer = 0; // cancel
     
         brakePulseAllowedTimer = millis();
+
+        // Overrides Running Lights
+        runningState = RUNNING_OFF;
     }
 
     void turnRightBlinkerOff()
@@ -696,6 +702,9 @@ public:
         brakePulseTimer = 0; // cancel
         turnOnLeftBrakeTimer = 0; // cancel
         turnOnRightBrakeTimer = 0; // cancel
+
+        // Overrides Running Lights
+        runningState = RUNNING_OFF;
     }
 
     void turnHazardsOff()
@@ -762,7 +771,7 @@ public:
 
         brakingState = state;
 
-        // Overrides Running Lights.
+        // Overrides Running Lights
         runningState = RUNNING_OFF;
     }
 
@@ -798,7 +807,7 @@ public:
 
         addPresetToQueue(reversePreset);
 
-        // Overrides Running Lights.
+        // Overrides Running Lights
         runningState = RUNNING_OFF;
     }
 
