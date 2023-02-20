@@ -126,6 +126,7 @@ bool presetIsSolid(int preset);
 #define DEFAULT_TURN_ON_BRAKE_TIME_MS           500
 #define DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS    800
 #define DEFAULT_TURN_SYNC_DELAY_TIME_MS     20
+#define DEFUALT_TURN_ON_RUNNING_LIGHTS_TIME_MS  800
 
 // Button timing
 #define DEFAULT_DEBOUNCE_TIME_MS            50  // only consider button input of at least 50ms as valid (debouncing)
@@ -239,6 +240,7 @@ bool presetIsSolid(int preset);
 #define CFG_JSON_TURN_ON_BRAKE_TIME_MS          "turnOnBrakeTimeMS"
 #define CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS   "disallowBrakePulseTimeMS"
 #define CFG_JSON_TURN_SYNC_DELAY_TIME_MS        "turnSyncDelayTimeMS"
+#define CFG_JSON_TURN_ON_RUNNING_LIGHTS_TIME_MS "turnOnRunningLightsTimeMS"
 
 // Button timing
 #define CFG_JSON_LONG_PRESS_TIME_MS             "longPressTimeMS"
@@ -390,6 +392,7 @@ private:
     int turnOnBrakeTimeMS = DEFAULT_TURN_ON_BRAKE_TIME_MS;
     int disallowBreakPulseTimeMS = DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS;
     int turnSyncDelayTimeMS = DEFAULT_TURN_SYNC_DELAY_TIME_MS;
+    int turnOnRunningLightsTimeMS = DEFUALT_TURN_ON_RUNNING_LIGHTS_TIME_MS;
 
     // Button times
     int debounceTimeMS = DEFAULT_DEBOUNCE_TIME_MS;
@@ -414,6 +417,7 @@ private:
     unsigned long brakePulseAllowedTimer = 0;
     unsigned long leftTurnSyncTimer = 0;
     unsigned long rightTurnSyncTimer = 0;
+    unsigned long turnOnRunningLightsTimer = 0;
 
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
 
@@ -638,6 +642,7 @@ public:
 
         // Overrides Running Lights
         runningState = RUNNING_OFF;
+        turnOnRunningLightsTimer = 0;
     }
 
     void turnLeftBlinkerOff()
@@ -667,6 +672,7 @@ public:
 
         // Overrides Running Lights
         runningState = RUNNING_OFF;
+        turnOnRunningLightsTimer = 0;
     }
 
     void turnRightBlinkerOff()
@@ -705,6 +711,7 @@ public:
 
         // Overrides Running Lights
         runningState = RUNNING_OFF;
+        turnOnRunningLightsTimer = 0;
     }
 
     void turnHazardsOff()
@@ -773,6 +780,7 @@ public:
 
         // Overrides Running Lights
         runningState = RUNNING_OFF;
+        turnOnRunningLightsTimer = 0;
     }
 
     void turnBrakesOff()
@@ -809,6 +817,7 @@ public:
 
         // Overrides Running Lights
         runningState = RUNNING_OFF;
+        turnOnRunningLightsTimer = 0;
     }
 
     void turnReverseLightsOff()
@@ -842,6 +851,7 @@ public:
             addPresetToQueue(presetRunningOff);
             
             runningState = RUNNING_OFF;
+            turnOnRunningLightsTimer = 0;
         }
     }
 
@@ -1008,6 +1018,17 @@ public:
             if (brakingState != BRAKES_OFF)
             {
                 addPresetToQueue(presetBrakeLeft);
+            }
+        }
+
+        // TODO: Need a new config for this delay value. Using brake for now since it is unused.
+        if ((turnOnRunningLightsTimer != 0) && (millis() - turnOnRunningLightsTimer > turnOnRunningLightsTimeMS))
+        {
+            turnOnRunningLightsTimer = 0;
+
+            if (runningState == RUNNING_OFF)
+            {
+                turnRunningLightsOn();
             }
         }
 
@@ -1368,7 +1389,7 @@ public:
                     turnBrakesOn(BRAKES_5WIRE_ON);
                 }
                 break;
-            
+                        
             case BUTTON_RELEASED:
                 // 5-Wire brake released
                 if (brakingState == BRAKES_5WIRE_ON)
@@ -1387,8 +1408,15 @@ public:
         switch (getLastPolledButtonStatus(buttonTapWire))
         {
             case BUTTON_SHORT_PRESS:
-            case BUTTON_LONG_PRESS:
                 state = STATE_CONFIG;
+                break;
+
+            case BUTTON_LONG_PRESS:
+                WLED_FS.format();
+                #ifdef WLED_ADD_EEPROM_SUPPORT
+                clearEEPROM();
+                #endif
+                doReboot = true;
                 break;
             
             default:
@@ -1405,7 +1433,13 @@ public:
             case BUTTON_LONG_PRESS:
                 if (runningState == RUNNING_OFF)
                 {
-                    turnRunningLightsOn();
+                    //turnRunningLightsOn();
+
+                    // Start "on" timer, if off.
+                    if (turnOnRunningLightsTimer == 0)
+                    {
+                        turnOnRunningLightsTimer = millis();
+                    }
                 }
                 break;
             
@@ -1936,6 +1970,7 @@ public:
         top[CFG_JSON_TURN_ON_BRAKE_TIME_MS] = turnOnBrakeTimeMS;
         top[CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS] = disallowBreakPulseTimeMS;
         top[CFG_JSON_TURN_SYNC_DELAY_TIME_MS] = turnSyncDelayTimeMS;
+        top[CFG_JSON_TURN_ON_RUNNING_LIGHTS_TIME_MS] = turnOnRunningLightsTimeMS;
 
         // Button times
         top[CFG_JSON_DEBOUNCE_TIME_MS] = debounceTimeMS;
@@ -2071,6 +2106,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_TURN_ON_BRAKE_TIME_MS], turnOnBrakeTimeMS, DEFAULT_TURN_ON_BRAKE_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_DISALLOW_BRAKE_PULSE_TIME_MS], disallowBreakPulseTimeMS, DEFAULT_DISALLOW_BRAKE_PULSE_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_TURN_SYNC_DELAY_TIME_MS], turnSyncDelayTimeMS, DEFAULT_TURN_SYNC_DELAY_TIME_MS);
+        configComplete &= getJsonValue(top[CFG_JSON_TURN_ON_RUNNING_LIGHTS_TIME_MS], turnOnRunningLightsTimeMS, DEFUALT_TURN_ON_RUNNING_LIGHTS_TIME_MS);
 
         // Button times
         configComplete &= getJsonValue(top[CFG_JSON_DEBOUNCE_TIME_MS], debounceTimeMS, DEFAULT_DEBOUNCE_TIME_MS);
