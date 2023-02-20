@@ -58,6 +58,7 @@ bool presetIsSolid(int preset);
 // Define the presets to use, and the range of presets for each mode:
 // i.e., "Brake presets are from 10 to 19", or "10 to 10" if there is only one.
 #define DEFAULT_PRESET_ALL_OFF              9
+#define DEFAULT_PRESET_PRE_STARTUP          20 // Reverse
 
 #define DEFAULT_PRESET_BRAKE_FIRST          10
 #define DEFAULT_PRESET_BRAKE_LAST           11
@@ -184,6 +185,7 @@ bool presetIsSolid(int preset);
 
 // Presets  
 #define CFG_JSON_PRESET_ALL_OFF                 "presetAllOff"
+#define CFG_JSON_PRESET_PRE_STARTUP             "presetPreStartup"
 
 #define CFG_JSON_PRESET_BRAKE_FIRST             "presetBrakeFirst"
 #define CFG_JSON_PRESET_BRAKE_LAST              "presetBrakeLast"
@@ -329,6 +331,7 @@ private:
 
     // Presets
     int presetAllOff = DEFAULT_PRESET_ALL_OFF;
+    int presetPreStartup = DEFAULT_PRESET_PRE_STARTUP;
 
     int presetBrakeFirst = DEFAULT_PRESET_BRAKE_FIRST;
     int presetBrakeLast = DEFAULT_PRESET_BRAKE_LAST;
@@ -522,10 +525,10 @@ public:
         // DEBUG_PRINTLN("Connected to WiFi!");
 
         // Move on to "in startup" state.
-        if (state == STATE_POWERUP)
-        {
-            state = STATE_STARTUP;
-        }
+        // if (state == STATE_POWERUP)
+        // {
+        //     state = STATE_STARTUP;
+        // }
 
         // TODO: Disable "turn off AP" code that is also TODO
     }
@@ -759,7 +762,7 @@ public:
 
         brakingState = state;
 
-        // Hack: This will override Running Lights.
+        // Overrides Running Lights.
         runningState = RUNNING_OFF;
     }
 
@@ -780,17 +783,8 @@ public:
         else
         {
             // Turn off both blinker segments.
-            addPresetToQueue(presetTurnBothOff);
-        }
-
-        // TODO: Do we need to do this here?
-        if (getLastPolledButtonStatus(buttonRunning) != BUTTON_RELEASED)
-        {
-            turnRunningLightsOn();
-        }
-        else
-        {
-            turnRunningLightsOff();
+            //addPresetToQueue(presetTurnBothOff);
+            addPresetToQueue(presetBrakesOff);
         }
     }
 
@@ -799,7 +793,13 @@ public:
         // In case they were running...
         turnOffLeftBlinkerTimer = 0;
         turnOffRightBlinkerTimer = 0;
+        brakePulseTimer = 0;
+        turnOffHazardsTimer = 0;
+
         addPresetToQueue(reversePreset);
+
+        // Overrides Running Lights.
+        runningState = RUNNING_OFF;
     }
 
     void turnReverseLightsOff()
@@ -815,8 +815,9 @@ public:
 
     void turnRunningLightsOn()
     {
-        // Brakes take priority.
-        if (brakingState == BRAKES_OFF)
+        // Only do this if nothing else is on.
+        if ((brakingState == BRAKES_OFF) &&
+            (blinkerState == BLINKERS_OFF))
         {
             addPresetToQueue(runningPreset);
 
@@ -826,10 +827,13 @@ public:
     
     void turnRunningLightsOff()
     {
-        // No such thing.
-        addPresetToQueue(presetRunningOff);
-        
-        runningState = RUNNING_OFF;
+        if ((brakingState == BRAKES_OFF) &&
+            (blinkerState == BLINKERS_OFF))
+        {
+            addPresetToQueue(presetRunningOff);
+            
+            runningState = RUNNING_OFF;
+        }
     }
 
     /*----------------------------------------------------------------------*/
@@ -841,9 +845,16 @@ public:
             DEBUG_PRINTLN("STATE_POWERUP");
             prevState = STATE_POWERUP;
 
+            applyPreset(presetPreStartup);
+
             powerupDelayTimer = millis();
         }
 
+        if (powerupDelayTimer == 0)
+        {
+            state = STATE_STARTUP;
+        }
+        else
         // Stay in this mode until time has elapsed.
         if ((powerupDelayTimer != 0) && (millis() - powerupDelayTimer > powerupDelayMS))
         {
@@ -865,7 +876,7 @@ public:
             prevState = STATE_STARTUP;
 
             // Maybe turn off lights to keep everything in sync?
-            addPresetToQueue(presetAllOff);
+            //addPresetToQueue(presetAllOff);
 
             // Workblade config takes priority.
             if (presetWorkbladeFirst != 0)
@@ -902,13 +913,12 @@ public:
         // Stay in this mode until time has elapsed.
         if ((turnOffStartupTimer != 0) && (millis() - turnOffStartupTimer > startupTimeMS))
         {
-            turnOffStartupTimer = 0; // turn off
-
             // Time elapsed.
-            // TODO: Do we need a dedicated preset for Startup Off?
-            // Let next mode decide if it wants the lights off.
-            //addPresetToQueue(presetAllOff);
+            turnOffStartupTimer = 0; // turn off
+        }
 
+        if (turnOffStartupTimer == 0)
+        {
             // Shut off startup lights.
             if (presetWorkbladeFirst != 0)
             {
@@ -940,14 +950,10 @@ public:
             // state (either because it's the first time and they
             // have never been turned on, or we went in to another
             // state that turned them off).
-            if (brakingState != BRAKES_OFF)
-            {
-                turnBrakesOn(brakingState);
-            }
-            else if (getLastPolledButtonStatus(buttonRunning) != BUTTON_RELEASED)
-            {
-                turnRunningLightsOn();
-            }
+            // if (brakingState != BRAKES_OFF)
+            // {
+            //     turnBrakesOn(brakingState);
+            // }
         }
 
         // Turn off things that need to be turned off.
@@ -1026,30 +1032,7 @@ public:
             }
         }
 
-        /*--------------------------------------------------------------*/
-        // Button 0 - Running
-        /*--------------------------------------------------------------*/
-        switch (getLastPolledButtonStatus(buttonRunning))
-        {
-            case BUTTON_PRESSED:
-            case BUTTON_SHORT_PRESS:
-            case BUTTON_LONG_PRESS:
-                if (runningState == RUNNING_OFF)
-                {
-                    turnRunningLightsOn();
-                }
-                break;
-            
-            case BUTTON_RELEASED:
-                if (runningState != RUNNING_OFF)
-                {
-                    turnRunningLightsOff();
-                }
-                break;
-            
-            default:
-                break;
-        }
+        // Button 0 - Running moved to the end
 
         /*--------------------------------------------------------------*/
         // Button 1 - Reverse
@@ -1402,6 +1385,32 @@ public:
             default:
                 break;
         }
+
+        /*--------------------------------------------------------------*/
+        // Button 0 - Running
+        /*--------------------------------------------------------------*/
+        switch (getLastPolledButtonStatus(buttonRunning))
+        {
+            case BUTTON_PRESSED:
+            case BUTTON_SHORT_PRESS:
+            case BUTTON_LONG_PRESS:
+                if (runningState == RUNNING_OFF)
+                {
+                    turnRunningLightsOn();
+                }
+                break;
+            
+            case BUTTON_RELEASED:
+                if (runningState != RUNNING_OFF)
+                {
+                    turnRunningLightsOff();
+                }
+                break;
+            
+            default:
+                break;
+        }
+
     } // end of handleRunning()
 
 
@@ -1860,6 +1869,7 @@ public:
 
         // Presets
         top[CFG_JSON_PRESET_ALL_OFF] = presetAllOff;
+        top[CFG_JSON_PRESET_PRE_STARTUP] = presetPreStartup;
 
         // Brake Config
         top[CFG_JSON_PRESET_BRAKE_FIRST] = presetBrakeFirst;
@@ -1994,6 +2004,7 @@ public:
 
         // Presets
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_ALL_OFF], presetAllOff, DEFAULT_PRESET_ALL_OFF);
+        configComplete &= getJsonValue(top[CFG_JSON_PRESET_PRE_STARTUP], presetPreStartup, DEFAULT_PRESET_PRE_STARTUP);
 
         // Brake Config
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_BRAKE_FIRST], presetBrakeFirst, DEFAULT_PRESET_BRAKE_FIRST);
