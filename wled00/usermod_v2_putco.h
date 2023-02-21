@@ -418,6 +418,7 @@ private:
     unsigned long leftTurnSyncTimer = 0;
     unsigned long rightTurnSyncTimer = 0;
     unsigned long turnOnRunningLightsTimer = 0;
+    unsigned long allowFactoryResetTimer = 0;
 
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
 
@@ -867,6 +868,8 @@ public:
             applyPreset(presetPreStartup);
 
             powerupDelayTimer = millis();
+
+            allowFactoryResetTimer = millis();
         }
 
         if (powerupDelayTimer == 0)
@@ -1412,11 +1415,27 @@ public:
                 break;
 
             case BUTTON_LONG_PRESS:
-                WLED_FS.format();
-                #ifdef WLED_ADD_EEPROM_SUPPORT
-                clearEEPROM();
-                #endif
-                doReboot = true;
+                // If Timer is running...
+                if (allowFactoryResetTimer != 0)
+                {
+                    // And it has been less than 6000ms...
+                    if (millis() - allowFactoryResetTimer < 6000) // TODO! Hard coded.
+                    {
+                        // Just to indicate something happened.
+                        applyPreset(reversePreset);
+                        WLED_FS.format();
+                        #ifdef WLED_ADD_EEPROM_SUPPORT
+                        clearEEPROM();
+                        #endif
+                        doReboot = true;
+
+                        allowFactoryResetTimer = 0; // Disable
+                    }
+                    else // Been longer than 6000. Disable.
+                    {
+                        allowFactoryResetTimer = 0; // Disable
+                    }
+                }
                 break;
             
             default:
@@ -1635,8 +1654,6 @@ public:
     /*----------------------------------------------------------------------*/
     void handleWorkblade()
     {
-        int btnStatus = BUTTON_RELEASED;
-
         // For anything that needs to be done only once when entering this state.
         if (prevState != STATE_WORKBLADE)
         {
@@ -1650,43 +1667,70 @@ public:
             configTimer = 0;
         }
 
-        btnStatus = getLastPolledButtonStatus(buttonTapWire);
-        if ((btnStatus == BUTTON_SHORT_PRESS) ||
-            (btnStatus == BUTTON_LONG_PRESS))
+        switch (getLastPolledButtonStatus(buttonTapWire))
         {
-            if (tapWireReleased == true)
-            {
-                tapWireReleased = false;
-
-                workbladePreset++;
-                if (workbladePreset > presetWorkbladeLast)
+            case BUTTON_SHORT_PRESS:
+                if (tapWireReleased == true)
                 {
-                    workbladePreset = presetWorkbladeFirst;
+                    tapWireReleased = false;
+
+                    workbladePreset++;
+                    if (workbladePreset > presetWorkbladeLast)
+                    {
+                        workbladePreset = presetWorkbladeFirst;
+                    }
+
+                    addPresetToQueue(workbladePreset);
+
+                    configTimer = millis(); // TODO: new timer?
                 }
+                break;
 
-                addPresetToQueue(workbladePreset);
-
-                configTimer = millis(); // TODO: new timer?
-            }
-        }
-        else if (btnStatus == BUTTON_RELEASED) // no button, check for timeout.
-        {
-            tapWireReleased = true;
-
-            // If no press in X seconds, the preset will be selected and
-            // we will move on to the next section.
-            // Stay in this mode until time has elapsed.
-            if ((configTimer != 0) && (millis() - configTimer > configTimeMS))
-            {
-                configTimer = 0; // turn off
-
-                // SAVE IF IT WAS CHANGED!
-                if (workbladePreset != orgWorkbladePreset)
+            case BUTTON_LONG_PRESS: // TODO: DUPLICATED CODE!!!!
+                // If Timer is running...
+                if (allowFactoryResetTimer != 0)
                 {
-                    serializeConfig();
+                    // And it has been less than 6000ms...
+                    if (millis() - allowFactoryResetTimer < 6000) // TODO! Hard coded.
+                    {
+                        // Just to indicate something happened.
+                        applyPreset(reversePreset);
+                        WLED_FS.format();
+                        #ifdef WLED_ADD_EEPROM_SUPPORT
+                        clearEEPROM();
+                        #endif
+                        doReboot = true;
+
+                        allowFactoryResetTimer = 0; // Disable
+                    }
+                    else // Been longer than 6000. Disable.
+                    {
+                        allowFactoryResetTimer = 0; // Disable
+                    }
                 }
-            }
-        }
+                break;
+            
+            case BUTTON_RELEASED: // no button, check for timeout.
+                tapWireReleased = true;
+
+                // If no press in X seconds, the preset will be selected and
+                // we will move on to the next section.
+                // Stay in this mode until time has elapsed.
+                if ((configTimer != 0) && (millis() - configTimer > configTimeMS))
+                {
+                    configTimer = 0; // turn off
+
+                    // SAVE IF IT WAS CHANGED!
+                    if (workbladePreset != orgWorkbladePreset)
+                    {
+                        serializeConfig();
+                    }
+                }
+                break;
+
+            default:
+                break;
+        } // end of switch (getLastPolledButtonStatus(buttonTapWire))
     } // end of handleWorkblade()
 
 
