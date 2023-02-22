@@ -22,6 +22,7 @@ void handleRunning(void);
 void handleReversing(void);
 void handleConfig(void);
 void handleWorkblade(void);
+void handleFactoryReset(void);
 
 void handlePresetQueue(void);
 void addPresetToQueue(int preset);
@@ -868,8 +869,6 @@ public:
             applyPreset(presetPreStartup);
 
             powerupDelayTimer = millis();
-
-            allowFactoryResetTimer = millis();
         }
 
         if (powerupDelayTimer == 0)
@@ -952,6 +951,8 @@ public:
                 // Move on to the "running" state.
                 state = STATE_RUNNING;
             }
+
+            allowFactoryResetTimer = millis();
         }
     } // end of handleStartup()
 
@@ -1411,33 +1412,10 @@ public:
         switch (getLastPolledButtonStatus(buttonTapWire))
         {
             case BUTTON_SHORT_PRESS:
+            case BUTTON_LONG_PRESS:
                 state = STATE_CONFIG;
                 break;
 
-            case BUTTON_LONG_PRESS:
-                // If Timer is running...
-                if (allowFactoryResetTimer != 0)
-                {
-                    // And it has been less than 6000ms...
-                    if (millis() - allowFactoryResetTimer < 6000) // TODO! Hard coded.
-                    {
-                        // Just to indicate something happened.
-                        applyPreset(reversePreset);
-                        WLED_FS.format();
-                        #ifdef WLED_ADD_EEPROM_SUPPORT
-                        clearEEPROM();
-                        #endif
-                        doReboot = true;
-
-                        allowFactoryResetTimer = 0; // Disable
-                    }
-                    else // Been longer than 6000. Disable.
-                    {
-                        allowFactoryResetTimer = 0; // Disable
-                    }
-                }
-                break;
-            
             default:
                 break;
         }
@@ -1506,8 +1484,6 @@ public:
     /*----------------------------------------------------------------------*/
     void handleConfig()
     {
-        int btnStatus = BUTTON_RELEASED;
-
         // For anything that needs to be done only once when entering this state.
         if (prevState != STATE_CONFIG)
         {
@@ -1538,116 +1514,128 @@ public:
             configTimer = millis();
         }
 
-        btnStatus = getLastPolledButtonStatus(buttonTapWire);
-        if ((btnStatus == BUTTON_SHORT_PRESS) ||
-            (btnStatus == BUTTON_LONG_PRESS))
+        switch (getLastPolledButtonStatus(buttonTapWire))
         {
-            // Cycle through items.
-            if (tapWireReleased == true)
-            {
-                tapWireReleased = false;
-
-                configPreset++;
-                if (configPreset > configPresetEnd)
+            case BUTTON_SHORT_PRESS:
+                // Cycle through items.
+                if (tapWireReleased == true)
                 {
-                    configPreset = configPresetStart;
-                }
+                    tapWireReleased = false;
 
-                addPresetToQueue(configPreset);
-                configTimer = millis();
-            }
-        }
-        else if (btnStatus == BUTTON_RELEASED) // no button, check for timeout.
-        {
-            tapWireReleased = true;
+                    configPreset++;
+                    if (configPreset > configPresetEnd)
+                    {
+                        configPreset = configPresetStart;
+                    }
 
-            // If no press in X seconds, the preset will be selected and
-            // we will move on to the next section.
-
-            // Timer means we are waiting to see if we should save.
-            // Stay in this mode until time has elapsed.
-            if ((configTimer != 0) && (millis() - configTimer > configTimeMS))
-            {
-                configTimer = 0; // turn off
-
-                // using if/then instead of switch/case so we can "break" out.
-                switch (configState)
-                {
-                    case CONFIG_STATE_STARTUP:
-                        startupPreset = configPreset;
-
-                        // If different, flag that we need to save it.
-                        if (startupPreset != orgStartupPreset)
-                        {
-                            configNeedsToBeSaved = true;
-                        }
-
-                        // Move on to next section.
-                        configState = CONFIG_STATE_TURNS;
-                        configPresetStart = presetTurnLeftFirst;
-                        configPresetEnd = presetTurnLeftLast;
-                        configPreset = turnLeftPreset; // current turn preset
-                        break;
-                    
-                    case CONFIG_STATE_TURNS:
-                        turnLeftPreset = configPreset;
-                        // Sync the right turn preset to match.
-                        turnRightPreset = presetTurnRightFirst + (turnLeftPreset - presetTurnLeftFirst);
-                    
-                        // If different, flag that we need to save it.
-                        if (turnLeftPreset != orgTurnLeftPreset)
-                        {
-                            configNeedsToBeSaved = true;
-                        }
-
-                        // Move on tot he next section.
-                        configState = CONFIG_STATE_BRAKES;
-                        configPresetStart = presetBrakeFirst;
-                        configPresetEnd = presetBrakeLast;
-                        configPreset = brakePreset; // current brake preset
-                        break;
-
-                    case CONFIG_STATE_BRAKES:
-                        brakePreset = configPreset;
-                    
-                        // If different, flag that we need to save it.
-                        if (brakePreset != orgBrakePreset)
-                        {
-                            configNeedsToBeSaved = true;
-                        }
-
-                        // Move on tot he next section.
-                        configState = CONFIG_STATE_EXIT; // done!
-                        break;
-
-                    default:
-                        // This should never happen, but if it does, exit.
-                        configState = CONFIG_STATE_EXIT;
-                        break;
-                } // switch (configState)
-
-                if (configState != CONFIG_STATE_EXIT)
-                {  
-                    // Shut off old, apply new, reset timer.
-                    addPresetToQueue(presetAllOff);
                     addPresetToQueue(configPreset);
-                    configTimer = millis();                    
+                    configTimer = millis();
                 }
-            } // end of if millis()
-
-            if (configState == CONFIG_STATE_EXIT)
-            {
-                // SAVE IF ANYTHING CHANGED!
-                if (configNeedsToBeSaved == true)
+                break;
+        
+            case BUTTON_LONG_PRESS:
+                if ((allowFactoryResetTimer != 0) && (millis() - allowFactoryResetTimer < 60000))
                 {
-                    serializeConfig();
-                }
+                    allowFactoryResetTimer = 0;
 
-                // This is the last one. Exit config.
-                state = STATE_RUNNING;
-                addPresetToQueue(presetAllOff);
+                    handleFactoryReset();
+                }
+                break;
+
+            case BUTTON_RELEASED: // no button, check for timeout.
+                tapWireReleased = true;
+
+                // If no press in X seconds, the preset will be selected and
+                // we will move on to the next section.
+
+                // Timer means we are waiting to see if we should save.
+                // Stay in this mode until time has elapsed.
+                if ((configTimer != 0) && (millis() - configTimer > configTimeMS))
+                {
+                    configTimer = 0; // turn off
+
+                    // using if/then instead of switch/case so we can "break" out.
+                    switch (configState)
+                    {
+                        case CONFIG_STATE_STARTUP:
+                            startupPreset = configPreset;
+
+                            // If different, flag that we need to save it.
+                            if (startupPreset != orgStartupPreset)
+                            {
+                                configNeedsToBeSaved = true;
+                            }
+
+                            // Move on to next section.
+                            configState = CONFIG_STATE_TURNS;
+                            configPresetStart = presetTurnLeftFirst;
+                            configPresetEnd = presetTurnLeftLast;
+                            configPreset = turnLeftPreset; // current turn preset
+                            break;
+                        
+                        case CONFIG_STATE_TURNS:
+                            turnLeftPreset = configPreset;
+                            // Sync the right turn preset to match.
+                            turnRightPreset = presetTurnRightFirst + (turnLeftPreset - presetTurnLeftFirst);
+                        
+                            // If different, flag that we need to save it.
+                            if (turnLeftPreset != orgTurnLeftPreset)
+                            {
+                                configNeedsToBeSaved = true;
+                            }
+
+                            // Move on tot he next section.
+                            configState = CONFIG_STATE_BRAKES;
+                            configPresetStart = presetBrakeFirst;
+                            configPresetEnd = presetBrakeLast;
+                            configPreset = brakePreset; // current brake preset
+                            break;
+
+                        case CONFIG_STATE_BRAKES:
+                            brakePreset = configPreset;
+                        
+                            // If different, flag that we need to save it.
+                            if (brakePreset != orgBrakePreset)
+                            {
+                                configNeedsToBeSaved = true;
+                            }
+
+                            // Move on tot he next section.
+                            configState = CONFIG_STATE_EXIT; // done!
+                            break;
+
+                        default:
+                            // This should never happen, but if it does, exit.
+                            configState = CONFIG_STATE_EXIT;
+                            break;
+                    } // switch (configState)
+
+                    if (configState != CONFIG_STATE_EXIT)
+                    {  
+                        // Shut off old, apply new, reset timer.
+                        addPresetToQueue(presetAllOff);
+                        addPresetToQueue(configPreset);
+                        configTimer = millis();                    
+                    }
+                } // end of if millis()
+                break;
+ 
+            default:
+                break;
+        } // end of switch (getLastPolledButtonStatus(buttonTapWire))
+
+        if (configState == CONFIG_STATE_EXIT)
+        {
+            // SAVE IF ANYTHING CHANGED!
+            if (configNeedsToBeSaved == true)
+            {
+                serializeConfig();
             }
-        } // end of button not pressed.
+
+            // This is the last one. Exit config.
+            state = STATE_RUNNING;
+            addPresetToQueue(presetAllOff);
+        }
     } // end of handleConfig()
 
 
@@ -1686,30 +1674,15 @@ public:
                 }
                 break;
 
-            case BUTTON_LONG_PRESS: // TODO: DUPLICATED CODE!!!!
-                // If Timer is running...
-                if (allowFactoryResetTimer != 0)
+            case BUTTON_LONG_PRESS:
+                if ((allowFactoryResetTimer != 0) && (millis() - allowFactoryResetTimer < 60000))
                 {
-                    // And it has been less than 6000ms...
-                    if (millis() - allowFactoryResetTimer < 6000) // TODO! Hard coded.
-                    {
-                        // Just to indicate something happened.
-                        applyPreset(reversePreset);
-                        WLED_FS.format();
-                        #ifdef WLED_ADD_EEPROM_SUPPORT
-                        clearEEPROM();
-                        #endif
-                        doReboot = true;
+                    allowFactoryResetTimer = 0;
 
-                        allowFactoryResetTimer = 0; // Disable
-                    }
-                    else // Been longer than 6000. Disable.
-                    {
-                        allowFactoryResetTimer = 0; // Disable
-                    }
+                    handleFactoryReset();
                 }
                 break;
-            
+
             case BUTTON_RELEASED: // no button, check for timeout.
                 tapWireReleased = true;
 
@@ -1733,6 +1706,27 @@ public:
         } // end of switch (getLastPolledButtonStatus(buttonTapWire))
     } // end of handleWorkblade()
 
+
+    /*----------------------------------------------------------------------*/
+    void handleFactoryReset(void)
+    {
+        // Only allow if we haven't been on longer than 6000ms.
+        //if (millis() < 6000)
+        {
+            // Just to indicate something happened.
+            applyPreset(reversePreset);
+#if defined(BUILD_FOR_WOKWI)
+            DEBUG_PRINTLN ("Format File System and Reboot.");
+            ESP.restart();
+#else
+            WLED_FS.format();
+            #ifdef WLED_ADD_EEPROM_SUPPORT
+            clearEEPROM();
+            #endif
+            doReboot = true;
+#endif
+        }
+    }
 
     /*----------------------------------------------------------------------*/
     /* CONTINUOUS
