@@ -1538,7 +1538,10 @@ public:
                 {
                     allowFactoryResetTimer = 0;
 
-                    handleFactoryReset();
+                    if (getLastPolledButtonStatus(buttonReverse) != BUTTON_RELEASED)
+                    {
+                        handleFactoryReset();
+                    }
                 }
                 break;
 
@@ -1679,7 +1682,10 @@ public:
                 {
                     allowFactoryResetTimer = 0;
 
-                    handleFactoryReset();
+                    if (getLastPolledButtonStatus(buttonReverse) != BUTTON_RELEASED)
+                    {
+                        handleFactoryReset();
+                    }
                 }
                 break;
 
