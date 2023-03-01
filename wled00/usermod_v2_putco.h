@@ -1504,6 +1504,7 @@ public:
 
             // Turn off lights to enter this mode.
             addPresetToQueue(presetAllOff);
+            runningState = RUNNING_OFF;
 
             // Shut off any timers.
             turnOffLeftBlinkerTimer = 0;
@@ -1638,6 +1639,7 @@ public:
             // This is the last one. Exit config.
             state = STATE_RUNNING;
             addPresetToQueue(presetAllOff);
+            runningState = RUNNING_OFF;
         }
     } // end of handleConfig()
 
