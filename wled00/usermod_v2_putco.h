@@ -2290,6 +2290,20 @@ public:
             // momentary button logic
             if (buttonPressedNow[b]) // pressed
             {
+                // For PWM pulsing buttons, we want to continue as if
+                // the button is being held down. If we get here, but
+                // we think it's a short press (was held down longer
+                // that debounce), we'd have a timer set so it presents
+                // short press for 50ms before releasing. If we see
+                // a new press during that time, we'll just pretend
+                // it's still being pressed so it can turn in to a
+                // long press later if needed.
+                if (buttonStatus[b] == BUTTON_SHORT_PRESS)
+                {
+                    buttonStatus[b] == BUTTON_PRESSED;
+                    buttonPressedBefore[b] = true;
+                }
+
                 // Stop any timer.
                 shortPressTimer[b] = 0;
 
@@ -2336,7 +2350,7 @@ public:
                     // At least debounce and not a long press.
                     if (buttonStatus[b] != BUTTON_SHORT_PRESS)
                     {
-                        shortPressTimer[b] = millis();
+                            shortPressTimer[b] = millis();
                     }
                     buttonStatus[b] = BUTTON_SHORT_PRESS;
                 }
