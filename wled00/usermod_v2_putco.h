@@ -2350,7 +2350,7 @@ public:
                     // At least debounce and not a long press.
                     if (buttonStatus[b] != BUTTON_SHORT_PRESS)
                     {
-                            shortPressTimer[b] = millis();
+                        shortPressTimer[b] = millis();
                     }
                     buttonStatus[b] = BUTTON_SHORT_PRESS;
                 }
