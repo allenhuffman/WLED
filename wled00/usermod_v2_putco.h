@@ -41,6 +41,8 @@ void turnRunningLightsOff(void);
 bool presetIsContinuous(int preset);
 bool presetIsSolid(int preset);
 
+void showButtonStatus(void);
+
 #endif // BUILD_FOR_WOKWI
 
 /*
@@ -130,7 +132,7 @@ bool presetIsSolid(int preset);
 #define DEFUALT_TURN_ON_RUNNING_LIGHTS_TIME_MS  800
 
 // Button timing
-#define DEFAULT_DEBOUNCE_TIME_MS            50  // only consider button input of at least 50ms as valid (debouncing)
+#define DEFAULT_DEBOUNCE_TIME_MS            3   // only consider button input of at least 50ms as valid (debouncing)
 #define DEFAULT_LONG_PRESS_TIME_MS          600 // long press if button is released after held for at least 600ms
 
 // INPUTS: Mapped to the Button 0-X of WLED.
@@ -422,7 +424,7 @@ private:
     unsigned long allowFactoryResetTimer = 0;
 
     unsigned long shortPressTimer[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0 };
-
+ 
     int turnOffTimeMS = 0;
 
     // State machine
@@ -466,10 +468,12 @@ private:
     bool buttonPressedBefore[WLED_MAX_BUTTONS]          _INIT({false});
     bool buttonLongPressed[WLED_MAX_BUTTONS]            _INIT({false});
     unsigned long buttonPressedTime[WLED_MAX_BUTTONS]   _INIT({0});
+    unsigned long buttonReleasedTime[WLED_MAX_BUTTONS]   _INIT({0});
 #else
     bool buttonPressedBefore[WLED_MAX_BUTTONS] = { false, false, false, false, false, false };
     bool buttonLongPressed[WLED_MAX_BUTTONS] = { false, false, false, false, false, false };
     unsigned long buttonPressedTime[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0, };
+    unsigned long buttonReleasedTime[WLED_MAX_BUTTONS] = { 0, 0, 0, 0, 0, 0, };
 #endif // BUILD_FOR_WOKWI
     int buttonStatus[WLED_MAX_BUTTONS];
 
@@ -2264,6 +2268,7 @@ public:
           buttonLongPressed[btn] = false;
           buttonPressedTime[btn] = 0;
           buttonStatus[btn] = BUTTON_RELEASED;
+          buttonReleasedTime[btn] = 0;
       }
   }
 
@@ -2283,29 +2288,15 @@ public:
         // Some logic copied from button.cpp
         unsigned long now = millis();
 
+        // Loop through all the buttons.
         for (int b=0; b<WLED_MAX_BUTTONS; b++)
         {
-            //buttonStatus[b] = BUTTON_RELEASED;
-
             // momentary button logic
             if (buttonPressedNow[b]) // pressed
             {
-                // For PWM pulsing buttons, we want to continue as if
-                // the button is being held down. If we get here, but
-                // we think it's a short press (was held down longer
-                // that debounce), we'd have a timer set so it presents
-                // short press for 50ms before releasing. If we see
-                // a new press during that time, we'll just pretend
-                // it's still being pressed so it can turn in to a
-                // long press later if needed.
-                if (buttonStatus[b] == BUTTON_SHORT_PRESS)
-                {
-                    buttonStatus[b] == BUTTON_PRESSED;
-                    buttonPressedBefore[b] = true;
-                }
-
-                // Stop any timer.
+                // Stop any timers.
                 shortPressTimer[b] = 0;
+                buttonReleasedTime[b] = 0;
 
                 if (!buttonPressedBefore[b])
                 {
@@ -2328,9 +2319,12 @@ public:
                 {
                     buttonStatus[b] = BUTTON_PRESSED;
                 }
-                else
+                else // Not long press, not longer than debounce.
                 {
-                    buttonStatus[b] = BUTTON_RELEASED;
+                    // Nothing to do yet. Probably.
+
+                    //buttonStatus[b] = BUTTON_RELEASED;
+                    //buttonReleasedTime[b] = millis();
                 }
             }
             else if (!buttonPressedNow[b] && buttonPressedBefore[b])
@@ -2338,22 +2332,52 @@ public:
                 // released
                 long dur = now - buttonPressedTime[b];
 
-                if ((dur < debounceTimeMS) || (buttonLongPressed[b]))
+                // Hang on. This gets painful.
+
+                // Ignore presses that did not reach debounce.
+                if (dur <= debounceTimeMS)
                 {
-                    // Not long enough, or releasing a long press.
-                    buttonLongPressed[b] = false;
+                    // Not long enough, nevermind.
                     buttonPressedBefore[b] = false;
-                    buttonStatus[b] = BUTTON_RELEASED;
+                    // Nothing else to reset, since the "button pressed"
+                    // code above would not have set anything yet.
                 }
-                else //if (dur >= debounceTimeMS)
+                else // Press was at least debounce time.
                 {
-                    // At least debounce and not a long press.
-                    if (buttonStatus[b] != BUTTON_SHORT_PRESS)
+                    // Handle PWM pulsing and try to ignore them.
+                    if (buttonReleasedTime[b] == 0)
                     {
-                        shortPressTimer[b] = millis();
+                        // Start button released timer.
+                        buttonReleasedTime[b] = millis();
                     }
-                    buttonStatus[b] = BUTTON_SHORT_PRESS;
-                }
+
+                    // Don't look for releases until they have exceeded 10ms.
+                    if ((buttonReleasedTime[b] != 0) && (millis() - buttonReleasedTime[b] < 10))
+                    {
+                        // It hasn't been long enough to be a real release.
+                    }
+                    else // Looks like a real release.
+                    {
+                        buttonReleasedTime[b] = 0;
+
+                        if (buttonLongPressed[b])
+                        {
+                            // Not long enough, or releasing a long press.
+                            buttonLongPressed[b] = false;
+                            buttonPressedBefore[b] = false;
+                            buttonStatus[b] = BUTTON_RELEASED;
+                        }
+                        else if (dur > debounceTimeMS)
+                        {
+                            // At least debounce and not a long press.
+                            if (buttonStatus[b] != BUTTON_SHORT_PRESS)
+                            {
+                                buttonStatus[b] = BUTTON_SHORT_PRESS;
+                                shortPressTimer[b] = millis();
+                            }
+                        }
+                    } // end of else real release.
+                } // end of else longer than debounce
             }
 
             // Hold short press for some time...
@@ -2364,19 +2388,21 @@ public:
                 buttonLongPressed[b] = false;
                 buttonPressedBefore[b] = false;
                 buttonStatus[b] = BUTTON_RELEASED;
+
+                buttonReleasedTime[b] = 0;
             }
 
         } // end of for (int b=0; b<WLED_MAX_BUTTONS; b++)
     }
 
 
-  /*---------------------------------------------------------------------------*/
-  // Retrieve last stored button status.
-  /*---------------------------------------------------------------------------*/
-  int getLastPolledButtonStatus(uint8_t btn)
-  {
-      return buttonStatus[btn];
-  }
+    /*---------------------------------------------------------------------------*/
+    // Retrieve last stored button status.
+    /*---------------------------------------------------------------------------*/
+    int getLastPolledButtonStatus(uint8_t btn)
+    {
+        return buttonStatus[btn];
+    }
 
 
     /*---------------------------------------------------------------------------*/
