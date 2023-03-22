@@ -718,6 +718,11 @@ public:
         turnOnLeftBrakeTimer = 0; // cancel
         turnOnRightBrakeTimer = 0; // cancel
 
+        // If Hazards go on, we are no longer looking for a turn.
+        // Kill sync timers.
+        leftTurnSyncTimer = 0;
+        rightTurnSyncTimer = 0;
+
         // Overrides Running Lights
         runningState = RUNNING_OFF;
         turnOnRunningLightsTimer = 0;

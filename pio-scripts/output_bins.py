@@ -23,6 +23,7 @@ def _create_dirs(dirs=["firmware", "map"]):
             os.mkdir("{}{}".format(OUTPUT_DIR, d))
 
 def bin_rename_copy(source, target, env):
+    print("bin_rename_copy")
     _create_dirs()
     variant = env["PIOENV"]
 
@@ -51,6 +52,7 @@ def bin_rename_copy(source, target, env):
         shutil.move("firmware.map", map_file)
 
 def bin_gzip(source, target, env):
+    print("bin_gzip")
     _create_dirs()
     variant = env["PIOENV"]
 
