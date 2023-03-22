@@ -61,7 +61,7 @@ void showButtonStatus(void);
 // Define the presets to use, and the range of presets for each mode:
 // i.e., "Brake presets are from 10 to 19", or "10 to 10" if there is only one.
 #define DEFAULT_PRESET_ALL_OFF              9
-#define DEFAULT_PRESET_PRE_STARTUP          20 // Reverse
+#define DEFAULT_PRESET_PRE_STARTUP          20 // DEFAULT_PRESET_REVERSE_FIRST
 
 #define DEFAULT_PRESET_BRAKE_FIRST          10
 #define DEFAULT_PRESET_BRAKE_LAST           11
@@ -134,6 +134,7 @@ void showButtonStatus(void);
 // Button timing
 #define DEFAULT_DEBOUNCE_TIME_MS            3   // only consider button input of at least 50ms as valid (debouncing)
 #define DEFAULT_LONG_PRESS_TIME_MS          600 // long press if button is released after held for at least 600ms
+#define DEFAULT_MIN_RELEASE_TIME_MS         10  // ignore button release until it's been released this long
 
 // INPUTS: Mapped to the Button 0-X of WLED.
 #define DEFAULT_BUTTON_RUNNING              0
@@ -248,6 +249,7 @@ void showButtonStatus(void);
 // Button timing
 #define CFG_JSON_LONG_PRESS_TIME_MS             "longPressTimeMS"
 #define CFG_JSON_DEBOUNCE_TIME_MS               "debounceTimeMS"
+#define CFG_JSON_MIN_RELEASE_TIME_MS            "minReleaseTimeMS"
     
 // Preset queue timing  
 #define CFG_JSON_PRESET_QUEUE_TIME_MS           "presetQueueTimeMS"
@@ -400,6 +402,7 @@ private:
     // Button times
     int debounceTimeMS = DEFAULT_DEBOUNCE_TIME_MS;
     int longPressTimeMS = DEFAULT_LONG_PRESS_TIME_MS;
+    int minReleaseTimeMS = DEFAULT_MIN_RELEASE_TIME_MS;
 
     // Preset queue time
     int presetQueueTimeMS = DEFAULT_PRESET_QUEUE_TIME_MS;
@@ -2025,6 +2028,7 @@ public:
         // Button times
         top[CFG_JSON_DEBOUNCE_TIME_MS] = debounceTimeMS;
         top[CFG_JSON_LONG_PRESS_TIME_MS] = longPressTimeMS;
+        top[CFG_JSON_MIN_RELEASE_TIME_MS] = minReleaseTimeMS;
 
         // Preset queue timing
         top[CFG_JSON_PRESET_QUEUE_TIME_MS] = presetQueueTimeMS;
@@ -2161,6 +2165,7 @@ public:
         // Button times
         configComplete &= getJsonValue(top[CFG_JSON_DEBOUNCE_TIME_MS], debounceTimeMS, DEFAULT_DEBOUNCE_TIME_MS);
         configComplete &= getJsonValue(top[CFG_JSON_LONG_PRESS_TIME_MS], longPressTimeMS, DEFAULT_LONG_PRESS_TIME_MS);
+        configComplete &= getJsonValue(top[CFG_JSON_MIN_RELEASE_TIME_MS], minReleaseTimeMS, DEFAULT_MIN_RELEASE_TIME_MS);
 
         // Preset queue time
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_QUEUE_TIME_MS], presetQueueTimeMS, DEFAULT_PRESET_QUEUE_TIME_MS);
@@ -2342,7 +2347,7 @@ public:
                     // Nothing else to reset, since the "button pressed"
                     // code above would not have set anything yet.
                 }
-                else // Press was at least debounce time.
+                else // Button held down at least debounce time.
                 {
                     // Handle PWM pulsing and try to ignore them.
                     if (buttonReleasedTime[b] == 0)
@@ -2352,12 +2357,13 @@ public:
                     }
 
                     // Don't look for releases until they have exceeded 10ms.
-                    if ((buttonReleasedTime[b] != 0) && (millis() - buttonReleasedTime[b] < 10))
+                    if ((buttonReleasedTime[b] != 0) && (millis() - buttonReleasedTime[b] < minReleaseTimeMS))
                     {
                         // It hasn't been long enough to be a real release.
                     }
                     else // Looks like a real release.
                     {
+                        // Cancel the release timer.
                         buttonReleasedTime[b] = 0;
 
                         if (buttonLongPressed[b])
@@ -2366,6 +2372,8 @@ public:
                             buttonLongPressed[b] = false;
                             buttonPressedBefore[b] = false;
                             buttonStatus[b] = BUTTON_RELEASED;
+                            // Cancel short press timer.
+                            shortPressTimer[b] = 0;
                         }
                         else if (dur > debounceTimeMS)
                         {
