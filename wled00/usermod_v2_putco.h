@@ -108,8 +108,8 @@ void showButtonStatus(void);
 #define DEFAULT_REVERSE_PRESET              DEFAULT_PRESET_REVERSE_FIRST
 #define DEFAULT_RUNNING_PRESET              DEFAULT_PRESET_RUNNING_FIRST
 #define DEFAULT_STARTUP_PRESET              DEFAULT_PRESET_STARTUP_FIRST
-#define DEFAULT_TURN_LEFT_PRESET            DEFAULT_PRESET_TURN_LEFT_FIRST
-#define DEFAULT_TURN_RIGHT_PRESET           DEFAULT_PRESET_TURN_RIGHT_FIRST
+#define DEFAULT_TURN_LEFT_PRESET            52 //DEFAULT_PRESET_TURN_LEFT_FIRST
+#define DEFAULT_TURN_RIGHT_PRESET           62 //DEFAULT_PRESET_TURN_RIGHT_FIRST
 #define DEFAULT_HAZARD_PRESET               DEFAULT_PRESET_HAZARD_FIRST
 #define DEFAULT_WORKBLADE_PRESET            DEFAULT_PRESET_WORKBLADE_FIRST
 
@@ -1961,7 +1961,7 @@ public:
         top[CFG_JSON_WORKBLADE] = workbladePreset;
 
         // Buttons
-        top[CFG_JSON_BUTTON_RUNNING] = buttonBrake;
+        top[CFG_JSON_BUTTON_RUNNING] = buttonRunning;
         top[CFG_JSON_BUTTON_REVERSE] = buttonReverse;
         top[CFG_JSON_BUTTON_TURN_LEFT] = buttonTurnLeft;
         top[CFG_JSON_BUTTON_TURN_RIGHT] = buttonTurnRight;
@@ -2098,7 +2098,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_WORKBLADE], workbladePreset, DEFAULT_WORKBLADE_PRESET);
 
         // Buttons
-        configComplete &= getJsonValue(top[CFG_JSON_BUTTON_RUNNING], buttonBrake, DEFAULT_BUTTON_BRAKE);
+        configComplete &= getJsonValue(top[CFG_JSON_BUTTON_RUNNING], buttonRunning, DEFAULT_BUTTON_RUNNING);
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_REVERSE], buttonReverse, DEFAULT_BUTTON_REVERSE);
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_TURN_LEFT], buttonTurnLeft, DEFAULT_BUTTON_TURN_LEFT);
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_TURN_RIGHT], buttonTurnRight, DEFAULT_BUTTON_TURN_RIGHT);
