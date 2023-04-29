@@ -421,8 +421,7 @@ private:
     unsigned long turnOnLeftBrakeTimer = 0;
     unsigned long turnOnRightBrakeTimer = 0;
     unsigned long brakePulseAllowedTimer = 0;
-    unsigned long leftTurnSyncTimer = 0;
-    unsigned long rightTurnSyncTimer = 0;
+    unsigned long lookingForHazardTimer = 0;
     unsigned long turnOnRunningLightsTimer = 0;
     unsigned long allowFactoryResetTimer = 0;
 
@@ -718,10 +717,8 @@ public:
         turnOnLeftBrakeTimer = 0; // cancel
         turnOnRightBrakeTimer = 0; // cancel
 
-        // If Hazards go on, we are no longer looking for a turn.
-        // Kill sync timers.
-        leftTurnSyncTimer = 0;
-        rightTurnSyncTimer = 0;
+        // If Hazards go on, we are no longer looking for them.
+        lookingForHazardTimer = 0;
 
         // Overrides Running Lights
         runningState = RUNNING_OFF;
@@ -1141,11 +1138,6 @@ public:
             case BUTTON_SHORT_PRESS: // Both saw short press
                 if (blinkerState != BLINKERS_HAZARD)
                 {
-                    DEBUG_PRINT("(");
-                    DEBUG_PRINT(getLastPolledTwoButtonStatus(buttonTurnLeft, buttonTurnRight));
-                    DEBUG_PRINT(")");
-
-                    DEBUG_PRINT("$");
                     turnHazardsOn();
                 }
 
@@ -1192,68 +1184,43 @@ public:
 
                 case BUTTON_PRESSED: // left pressed
                 case BUTTON_SHORT_PRESS: // or left being held down
-                    if ((rightButtonStatus == BUTTON_PRESSED) ||
-                        (rightButtonStatus == BUTTON_SHORT_PRESS))
+                    // Start the timer, if needed.
+                    if (lookingForHazardTimer == 0)
                     {
-                        if (blinkerState != BLINKERS_HAZARD)
-                        {
-                            turnHazardsOn();
-                        }
+                        lookingForHazardTimer = millis ();
                     }
-                    else
-                    if ((rightButtonStatus == BUTTON_RELEASED) ||
-                        (rightButtonStatus == BUTTON_LONG_PRESS))
+                    else if (millis() - lookingForHazardTimer > turnSyncDelayTimeMS)
                     {
-                        // Start timer if necessary.
-                        if (leftTurnSyncTimer == 0)
-                        {
-                            leftTurnSyncTimer = millis();
-                        }
-                
-                        //if (leftButtonCounter++ > 20)
-                        if ((leftTurnSyncTimer != 0) && (millis() - leftTurnSyncTimer > turnSyncDelayTimeMS))
-                        {
-                            // if (blinkerState == BLINKERS_RIGHT)
-                            // {
-                            //     turnRightBlinkerOff();
-                            // }
+                        // Only look for turns after timer.
+                        lookingForHazardTimer = 0; // kill timer.
 
-                            if (blinkerState == BLINKERS_OFF)
+                        if (blinkerState == BLINKERS_OFF)
+                        {
+                            turnLeftBlinkerOn();
+
+                            if (presetIsContinuous(turnLeftPreset) == true)
                             {
-                                turnLeftBlinkerOn();
+                                turnOffTimeMS = animationTimeMS; // Looping cycle
+                                turnOffLeftBlinkerTimer = millis();
 
-                                if (presetIsContinuous(turnLeftPreset) == true)
-                                {
-                                    turnOffTimeMS = animationTimeMS; // Looping cycle
-                                    turnOffLeftBlinkerTimer = millis();
-
-                                }
-                                else if (presetIsSolid(turnLeftPreset) == false)
-                                {
-                                    turnOffTimeMS = turningTimeMS; // One-shot cycle
-                                    turnOffLeftBlinkerTimer = millis();
-                                }
                             }
-                            else if (blinkerState == BLINKERS_LEFT)
+                            else if (presetIsSolid(turnLeftPreset) == false)
                             {
-                                if (presetIsContinuous(turnLeftPreset) == true)
-                                {
-                                    // Start timer so we know when to shut it off.
-                                    turnOffLeftBlinkerTimer = millis();
-                                    // Extend this timer, too.
-                                    brakePulseAllowedTimer = millis();
-                                }
+                                turnOffTimeMS = turningTimeMS; // One-shot cycle
+                                turnOffLeftBlinkerTimer = millis();
                             }
-
-                            leftTurnSyncTimer = 0; // Disable.
-                            //leftButtonCounter = 0;
                         }
-                    }
-                    else
-                    {
-                        leftTurnSyncTimer = 0; // Disable.  
-                        //leftButtonCounter = 0;
-                    }
+                        else if (blinkerState == BLINKERS_LEFT)
+                        {
+                            if (presetIsContinuous(turnLeftPreset) == true)
+                            {
+                                // Start timer so we know when to shut it off.
+                                turnOffLeftBlinkerTimer = millis();
+                                // Extend this timer, too.
+                                brakePulseAllowedTimer = millis();
+                            }
+                        }
+                    } // end of turnSyncDelayMS reached.
                     break;
               
                 // In case of braking while turning.
@@ -1302,67 +1269,42 @@ public:
 
                 case BUTTON_PRESSED: // right pressed
                 case BUTTON_SHORT_PRESS: // or right being held down
-                    if ((leftButtonStatus == BUTTON_PRESSED) ||
-                        (leftButtonStatus == BUTTON_SHORT_PRESS))
+                    // Start the timer, if needed.
+                    if (lookingForHazardTimer == 0)
                     {
-                        if (blinkerState != BLINKERS_HAZARD)
-                        {
-                            turnHazardsOn();
-                        }
+                        lookingForHazardTimer = millis ();
                     }
-                    else
-                    if ((leftButtonStatus == BUTTON_RELEASED) ||
-                        (leftButtonStatus == BUTTON_LONG_PRESS))
+                    else if (millis() - lookingForHazardTimer > turnSyncDelayTimeMS)
                     {
-                        // Start timer if necessary.
-                        if (rightTurnSyncTimer == 0)
-                        {
-                            rightTurnSyncTimer = millis();
-                        }
-                
-                        //if (rightButtonCounter++ > 20)
-                        if ((rightTurnSyncTimer != 0) && (millis() - rightTurnSyncTimer > turnSyncDelayTimeMS))
-                        {
-                            // if (blinkerState == BLINKERS_RIGHT)
-                            // {
-                            //     turnLeftBlinkerOff();
-                            // }
+                        // Only look for turns after timer.
+                        lookingForHazardTimer = 0; // kill timer.
 
-                            if (blinkerState == BLINKERS_OFF)
-                            {
-                                turnRightBlinkerOn();
+                        if (blinkerState == BLINKERS_OFF)
+                        {
+                            turnRightBlinkerOn();
 
-                                if (presetIsContinuous(turnRightPreset) == true)
-                                {
-                                    turnOffTimeMS = animationTimeMS; // Looping cycle
-                                    turnOffRightBlinkerTimer = millis();
-                                }
-                                else if (presetIsSolid(turnRightPreset) == false)
-                                {
-                                    turnOffTimeMS = turningTimeMS; // One shot cycle
-                                    turnOffRightBlinkerTimer = millis();
-                                }
-                            }
-                            else if (blinkerState == BLINKERS_RIGHT)
+                            if (presetIsContinuous(turnRightPreset) == true)
                             {
-                                if (presetIsContinuous(turnRightPreset) == true)
-                                {
-                                    // Start timer so we know when to shut it off.
-                                    turnOffRightBlinkerTimer = millis();
-                                    // Extend this timer, too.
-                                    brakePulseAllowedTimer = millis();
-                                }
+                                turnOffTimeMS = animationTimeMS; // Looping cycle
+                                turnOffRightBlinkerTimer = millis();
                             }
-                            
-                            rightTurnSyncTimer = 0; // Disable.
-                            //rightButtonCounter = 0;
+                            else if (presetIsSolid(turnRightPreset) == false)
+                            {
+                                turnOffTimeMS = turningTimeMS; // One shot cycle
+                                turnOffRightBlinkerTimer = millis();
+                            }
                         }
-                    }
-                    else
-                    {
-                        rightTurnSyncTimer = 0; // Disable.
-                        //rightButtonCounter = 0;
-                    }
+                        else if (blinkerState == BLINKERS_RIGHT)
+                        {
+                            if (presetIsContinuous(turnRightPreset) == true)
+                            {
+                                // Start timer so we know when to shut it off.
+                                turnOffRightBlinkerTimer = millis();
+                                // Extend this timer, too.
+                                brakePulseAllowedTimer = millis();
+                            }
+                        }
+                    } // end of turnSyncDelayMS reached.
                     break;
 
                 // In case of braking while turning.
@@ -2362,7 +2304,8 @@ public:
                     }
 
                     // Don't look for releases until they have exceeded 10ms.
-                    if ((buttonReleasedTime[b] != 0) && (millis() - buttonReleasedTime[b] < minReleaseTimeMS))
+                    if ((buttonReleasedTime[b] != 0) &&
+                        (millis() - buttonReleasedTime[b] < minReleaseTimeMS))
                     {
                         // It hasn't been long enough to be a real release.
                     }
@@ -2373,7 +2316,7 @@ public:
 
                         if (buttonLongPressed[b])
                         {
-                            // Not long enough, or releasing a long press.
+                            // Releasing a long press.
                             buttonLongPressed[b] = false;
                             buttonPressedBefore[b] = false;
                             buttonStatus[b] = BUTTON_RELEASED;
