@@ -199,12 +199,12 @@ void Segment::setUpLeds() {
     #else
     leds = &Segment::_globalLeds[start];
     #endif
-  else if (!leds) {
-    #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_PSRAM)
-    if (psramFound())
-      leds = (CRGB*)ps_malloc(sizeof(CRGB)*length());
-    else
-    #endif
+  else if (leds == nullptr && length() > 0) { //softhack007 quickfix - avoid malloc(0) which is undefined behaviour (should not happen, but i've seen it)
+    //#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_PSRAM)
+    //if (psramFound())
+    //  leds = (CRGB*)ps_malloc(sizeof(CRGB)*length());   // softhack007 disabled; putting leds into psram leads to horrible slowdown on WROVER boards
+    //else
+    //#endif
       leds = (CRGB*)malloc(sizeof(CRGB)*length());
   }
 }
@@ -228,13 +228,14 @@ CRGBPalette16 &Segment::loadPalette(CRGBPalette16 &targetPalette, uint8_t pal) {
     case FX_MODE_GLITTER    : pal = 11; break; // rainbow colors
     case FX_MODE_SUNRISE    : pal = 35; break; // heat palette
     case FX_MODE_RAILWAY    : pal =  3; break; // prim + sec
+    case FX_MODE_2DSOAP     : pal = 11; break; // rainbow colors
   }
   switch (pal) {
     case 0: //default palette. Exceptions for specific effects above
       targetPalette = PartyColors_p; break;
     case 1: {//periodically replace palette with a random one. Transition palette change in 500ms
       uint32_t timeSinceLastChange = millis() - _lastPaletteChange;
-      if (timeSinceLastChange > 5000 /*+ ((uint32_t)(255-intensity))*100*/) {
+      if (timeSinceLastChange > randomPaletteChangeTime * 1000U) {
         prevRandomPalette = randomPalette;
         randomPalette = CRGBPalette16(
                         CHSV(random8(), random8(160, 255), random8(128, 255)),
@@ -622,7 +623,7 @@ void IRAM_ATTR Segment::setPixelColor(int i, uint32_t col)
 
   uint16_t len = length();
   uint8_t _bri_t = currentBri(on ? opacity : 0);
-  if (!_bri_t && !transitional) return;
+  if (!_bri_t && !transitional && fadeTransition) return; // if _bri_t == 0 && segment is not transitionig && transitions are enabled then save a few CPU cycles
   if (_bri_t < 255) {
     byte r = scale8(R(col), _bri_t);
     byte g = scale8(G(col), _bri_t);
@@ -820,8 +821,22 @@ void Segment::blendPixelColor(int n, uint32_t color, uint8_t blend) {
 }
 
 // Adds the specified color with the existing pixel color perserving color balance.
-void Segment::addPixelColor(int n, uint32_t color) {
-  setPixelColor(n, color_add(getPixelColor(n), color));
+void Segment::addPixelColor(int n, uint32_t color, bool fast) {
+  uint32_t col = getPixelColor(n);
+  uint8_t r = R(col);
+  uint8_t g = G(col);
+  uint8_t b = B(col);
+  uint8_t w = W(col);
+  if (fast) {
+    r = qadd8(r, R(color));
+    g = qadd8(g, G(color));
+    b = qadd8(b, B(color));
+    w = qadd8(w, W(color));
+    col = RGBW32(r,g,b,w);
+  } else {
+    col = color_add(col, color);
+  }
+  setPixelColor(n, col);
 }
 
 void Segment::fadePixelColor(uint16_t n, uint8_t fade) {
@@ -1054,11 +1069,12 @@ void WS2812FX::finalizeInit(void)
   }
   if (useLedsArray) {
     size_t arrSize = sizeof(CRGB) * getLengthTotal();
-    #if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_PSRAM)
-    if (psramFound())
-      Segment::_globalLeds = (CRGB*) ps_malloc(arrSize);
-    else
-    #endif
+    // softhack007 disabled; putting leds into psram leads to horrible slowdown on WROVER boards (see setUpLeds())
+    //#if defined(ARDUINO_ARCH_ESP32) && defined(WLED_USE_PSRAM)
+    //if (psramFound())
+    //  Segment::_globalLeds = (CRGB*) ps_malloc(arrSize);
+    //else
+    //#endif
       Segment::_globalLeds = (CRGB*) malloc(arrSize);
     memset(Segment::_globalLeds, 0, arrSize);
   }
@@ -1181,12 +1197,12 @@ void WS2812FX::estimateCurrentAndLimitBri() {
 
   uint32_t powerSum = 0;
 
-  for (uint8_t b = 0; b < busses.getNumBusses(); b++) {
-    Bus *bus = busses.getBus(b);
+  for (uint_fast8_t bNum = 0; bNum < busses.getNumBusses(); bNum++) {
+    Bus *bus = busses.getBus(bNum);
     if (bus->getType() >= TYPE_NET_DDP_RGB) continue; //exclude non-physical network busses
     uint16_t len = bus->getLength();
     uint32_t busPowerSum = 0;
-    for (uint16_t i = 0; i < len; i++) { //sum up the usage of each LED
+    for (uint_fast16_t i = 0; i < len; i++) { //sum up the usage of each LED
       uint32_t c = bus->getPixelColor(i);
       byte r = R(c), g = G(c), b = B(c), w = W(c);
 
