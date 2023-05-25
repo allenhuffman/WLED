@@ -1363,15 +1363,20 @@ public:
         /*----------------------------------------------------------*/
         // Button 6 - Tap Wire (Config)
         /*----------------------------------------------------------*/
-        switch (getLastPolledButtonStatus(buttonTapWire))
+        // Only check Tap Wire if configTimeMS is non-zero. Setting
+        // it to zero will disable checking for this.
+        if (configTimeMS != 0)
         {
-            case BUTTON_SHORT_PRESS:
-            case BUTTON_LONG_PRESS:
-                state = STATE_CONFIG;
-                break;
+            switch (getLastPolledButtonStatus(buttonTapWire))
+            {
+                case BUTTON_SHORT_PRESS:
+                case BUTTON_LONG_PRESS:
+                    state = STATE_CONFIG;
+                    break;
 
-            default:
-                break;
+                default:
+                    break;
+            }
         }
 
         /*--------------------------------------------------------------*/
