@@ -25,5 +25,5 @@
 //#define MAX_LEDS 1500       //Maximum total LEDs. More than 1500 might create a low memory situation on ESP8266.
 
 #ifndef WLED_MAX_BUTTONS
-  #define WLED_MAX_BUTTONS 6  // Putco
+  #define WLED_MAX_BUTTONS 8  // Putco
 #endif
