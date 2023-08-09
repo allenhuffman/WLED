@@ -1990,6 +1990,8 @@ public:
         top[CFG_JSON_BUTTON_TURN_RIGHT] = buttonTurnRight;
         top[CFG_JSON_BUTTON_BRAKE] = buttonBrake;
         top[CFG_JSON_BUTTON_TAP_WIRE] = buttonTapWire;
+        top[CFG_JSON_BUTTON_OVERRIDE1] = buttonOverride1;
+        top[CFG_JSON_BUTTON_OVERRIDE2] = buttonOverride2;
 
         // Presets
         top[CFG_JSON_PRESET_ALL_OFF] = presetAllOff;
@@ -2131,6 +2133,8 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_TURN_RIGHT], buttonTurnRight, DEFAULT_BUTTON_TURN_RIGHT);
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_BRAKE], buttonBrake, DEFAULT_BUTTON_BRAKE);
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_TAP_WIRE], buttonTapWire, DEFAULT_BUTTON_TAP_WIRE);
+        configComplete &= getJsonValue(top[CFG_JSON_BUTTON_OVERRIDE1], buttonOverride1, DEFAULT_BUTTON_OVERRIDE1);
+        configComplete &= getJsonValue(top[CFG_JSON_BUTTON_OVERRIDE2], buttonOverride2, DEFAULT_BUTTON_OVERRIDE2);
 
         // Presets
         configComplete &= getJsonValue(top[CFG_JSON_PRESET_ALL_OFF], presetAllOff, DEFAULT_PRESET_ALL_OFF);
