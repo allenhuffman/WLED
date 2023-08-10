@@ -329,7 +329,7 @@ typedef enum mapping1D2D {
   M12_pCorner = 3
 } mapping1D2D_t;
 
-// segment, 72 bytes
+// segment, 80 bytes
 typedef struct Segment {
   public:
     uint16_t start; // start index / start X coordinate 2D (left)
@@ -353,7 +353,8 @@ typedef struct Segment {
         bool    mirror_y    : 1;  //     8 : mirrored Y (2D)
         bool    transpose   : 1;  //     9 : transposed (2D, swapped X & Y)
         uint8_t map1D2D     : 3;  // 10-12 : mapping for 1D effect on 2D (0-use as strip, 1-expand vertically, 2-circular/arc, 3-rectangular/corner, ...)
-        uint8_t soundSim    : 3;  // 13-15 : 0-7 sound simulation types
+        uint8_t soundSim    : 1;  //    13 : 0-1 sound simulation types ("soft" & "hard" or "on"/"off")
+        uint8_t set         : 2;  // 14-15 : 0-3 UI segment sets/groups
       };
     };
     uint8_t  grouping, spacing;
@@ -369,7 +370,7 @@ typedef struct Segment {
     };
     uint8_t startY;  // start Y coodrinate 2D (top); there should be no more than 255 rows
     uint8_t stopY;   // stop Y coordinate 2D (bottom); there should be no more than 255 rows
-    char *name;
+    char    *name;
 
     // runtime data
     unsigned long next_time;  // millis() of next update
@@ -377,9 +378,7 @@ typedef struct Segment {
     uint32_t call;  // call counter
     uint16_t aux0;  // custom var
     uint16_t aux1;  // custom var
-    byte* data;     // effect data pointer
-    CRGB* leds;     // local leds[] array (may be a pointer to global)
-    static CRGB *_globalLeds;             // global leds[] array
+    byte     *data; // effect data pointer
     static uint16_t maxWidth, maxHeight;  // these define matrix width & height (max. segment dimensions)
 
   private:
@@ -393,10 +392,15 @@ typedef struct Segment {
         uint8_t _reserved : 4;
       };
     };
-    uint16_t _dataLen;
+    uint16_t        _dataLen;
     static uint16_t _usedSegmentData;
 
-    // transition data, valid only if transitional==true, holds values during transition
+    // perhaps this should be per segment, not static
+    static CRGBPalette16 _randomPalette;
+    static CRGBPalette16 _newRandomPalette;
+    static unsigned long _lastPaletteChange;
+
+    // transition data, valid only if transitional==true, holds values during transition (72 bytes)
     struct Transition {
       uint32_t      _colorT[NUM_COLORS];
       uint8_t       _briT;        // temporary brightness
@@ -407,7 +411,7 @@ typedef struct Segment {
       //uint16_t      _aux0, _aux1; // previous mode/effect runtime data
       //uint32_t      _step, _call; // previous mode/effect runtime data
       //byte         *_data;        // previous mode/effect runtime data
-      uint32_t      _start;
+      unsigned long _start;         // must accommodate millis()
       uint16_t      _dur;
       Transition(uint16_t dur=750)
         : _briT(255)
@@ -462,7 +466,6 @@ typedef struct Segment {
       aux0(0),
       aux1(0),
       data(nullptr),
-      leds(nullptr),
       _capabilities(0),
       _dataLen(0),
       _t(nullptr)
@@ -483,12 +486,10 @@ typedef struct Segment {
       //Serial.print(F("Destroying segment:"));
       //if (name) Serial.printf(" %s (%p)", name, name);
       //if (data) Serial.printf(" %d (%p)", (int)_dataLen, data);
-      //if (leds) Serial.printf(" [%u]", length()*sizeof(CRGB));
       //Serial.println();
       //#endif
-      if (!Segment::_globalLeds && leds) free(leds);
-      if (name) delete[] name;
-      if (_t) delete _t;
+      if (name) { delete[] name; name = nullptr; }
+      if (_t)   { transitional = false; delete _t; _t = nullptr; }
       deallocateData();
     }
 
@@ -496,7 +497,7 @@ typedef struct Segment {
     Segment& operator= (Segment &&orig) noexcept; // move assignment
 
 #ifdef WLED_DEBUG
-    size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0) + (!Segment::_globalLeds && leds?sizeof(CRGB)*length():0); }
+    size_t getSize() const { return sizeof(Segment) + (data?_dataLen:0) + (name?strlen(name):0) + (_t?sizeof(Transition):0); }
 #endif
 
     inline bool     getOption(uint8_t n) const { return ((options >> n) & 0x01); }
@@ -506,16 +507,17 @@ typedef struct Segment {
     inline bool     hasRGB(void)         const { return _isRGB; }
     inline bool     hasWhite(void)       const { return _hasW; }
     inline bool     isCCT(void)          const { return _isCCT; }
-    inline uint16_t width(void)          const { return stop - start; }       // segment width in physical pixels (length if 1D)
-    inline uint16_t height(void)         const { return stopY - startY; }     // segment height (if 2D) in physical pixels
-    inline uint16_t length(void)         const { return width() * height(); } // segment length (count) in physical pixels
+    inline uint16_t width(void)          const { return isActive() ? (stop - start) : 0; }  // segment width in physical pixels (length if 1D)
+    inline uint16_t height(void)         const { return stopY - startY; }                   // segment height (if 2D) in physical pixels (it *is* always >=1)
+    inline uint16_t length(void)         const { return width() * height(); }               // segment length (count) in physical pixels
     inline uint16_t groupLength(void)    const { return grouping + spacing; }
     inline uint8_t  getLightCapabilities(void) const { return _capabilities; }
 
     static uint16_t getUsedSegmentData(void)    { return _usedSegmentData; }
     static void     addUsedSegmentData(int len) { _usedSegmentData += len; }
+    static void     handleRandomPalette();
 
-    void    set(uint16_t i1, uint16_t i2, uint8_t grp=1, uint8_t spc=0, uint16_t ofs=UINT16_MAX, uint16_t i1Y=0, uint16_t i2Y=1);
+    void    setUp(uint16_t i1, uint16_t i2, uint8_t grp=1, uint8_t spc=0, uint16_t ofs=UINT16_MAX, uint16_t i1Y=0, uint16_t i2Y=1, uint8_t segId = 255);
     bool    setColor(uint8_t slot, uint32_t c); //returns true if changed
     void    setCCT(uint16_t k);
     void    setOpacity(uint8_t o);
@@ -537,7 +539,6 @@ typedef struct Segment {
       * Safe to call from interrupts and network requests.
       */
     inline void markForReset(void) { reset = true; }  // setOption(SEG_OPTION_RESET, true)
-    void setUpLeds(void);   // set up leds[] array for loseless getPixelColor()
 
     // transition functions
     void     startTransition(uint16_t dur); // transition has to start before actual segment values change
@@ -578,7 +579,7 @@ typedef struct Segment {
     uint16_t virtualHeight(void) const;
     uint16_t nrOfVStrips(void) const;
   #ifndef WLED_DISABLE_2D
-    uint16_t XY(uint16_t x, uint16_t y); // support function to get relative index within segment (for leds[])
+    uint16_t XY(uint16_t x, uint16_t y); // support function to get relative index within segment
     void setPixelColorXY(int x, int y, uint32_t c); // set relative pixel within segment with color
     void setPixelColorXY(int x, int y, byte r, byte g, byte b, byte w = 0) { setPixelColorXY(x, y, RGBW32(r,g,b,w)); } // automatically inline
     void setPixelColorXY(int x, int y, CRGB c)                             { setPixelColorXY(x, y, RGBW32(c.r,c.g,c.b,0)); } // automatically inline
@@ -691,7 +692,15 @@ class WS2812FX {  // 96 bytes
       customMappingSize(0),
       _lastShow(0),
       _segment_index(0),
-      _mainSegment(0)
+      _mainSegment(0),
+      _queuedChangesSegId(255),
+      _qStart(0),
+      _qStop(0),
+      _qStartY(0),
+      _qStopY(0),
+      _qGrouping(0),
+      _qSpacing(0),
+      _qOffset(0)
     {
       WS2812FX::instance = this;
       _mode.reserve(_modeCount);     // allocate memory to prevent initial fragmentation (does not increase size())
@@ -709,7 +718,6 @@ class WS2812FX {  // 96 bytes
       panel.clear();
 #endif
       customPalettes.clear();
-      if (useLedsArray && Segment::_globalLeds) free(Segment::_globalLeds);
     }
 
     static WS2812FX* getInstance(void) { return instance; }
@@ -748,7 +756,7 @@ class WS2812FX {  // 96 bytes
     inline void trigger(void) { _triggered = true; } // Forces the next frame to be computed on all active segments.
     inline void setShowCallback(show_callback cb) { _callback = cb; }
     inline void setTransition(uint16_t t) { _transitionDur = t; }
-    inline void appendSegment(const Segment &seg = Segment()) { _segments.push_back(seg); }
+    inline void appendSegment(const Segment &seg = Segment()) { if (_segments.size() < getMaxSegments()) _segments.push_back(seg); }
 
     bool
       checkSegmentAlignment(void),
@@ -756,8 +764,7 @@ class WS2812FX {  // 96 bytes
       hasCCTBus(void),
       // return true if the strip is being sent pixel updates
       isUpdating(void),
-      deserializeMap(uint8_t n=0),
-      useLedsArray = false;
+      deserializeMap(uint8_t n=0);
 
     inline bool isServicing(void) { return _isServicing; }
     inline bool hasWhiteChannel(void) {return _hasWhiteChannel;}
@@ -771,6 +778,7 @@ class WS2812FX {  // 96 bytes
       getActiveSegmentsNum(void),
       getFirstSelectedSegId(void),
       getLastActiveSegmentId(void),
+      getActiveSegsLightCapabilities(bool selectedOnly = false),
       setPixelSegment(uint8_t n);
 
     inline uint8_t getBrightness(void) { return _brightness; }
@@ -898,13 +906,20 @@ class WS2812FX {  // 96 bytes
     uint16_t* customMappingTable;
     uint16_t  customMappingSize;
 
-    uint32_t _lastShow;
+    unsigned long _lastShow;
 
     uint8_t _segment_index;
     uint8_t _mainSegment;
+    uint8_t _queuedChangesSegId;
+    uint16_t _qStart, _qStop, _qStartY, _qStopY;
+    uint8_t _qGrouping, _qSpacing;
+    uint16_t _qOffset;
+
+    uint8_t
+      estimateCurrentAndLimitBri(void);
 
     void
-      estimateCurrentAndLimitBri(void);
+      setUpSegmentFromQueuedChanges(void);
 };
 
 extern const char JSON_mode_names[];

@@ -569,16 +569,6 @@ class AudioReactive : public Usermod {
     #else
     int8_t i2sckPin = I2S_CKPIN;
     #endif
-    #ifndef ES7243_SDAPIN
-    int8_t sdaPin = -1;
-    #else
-    int8_t sdaPin = ES7243_SDAPIN;
-    #endif
-    #ifndef ES7243_SCLPIN
-    int8_t sclPin = -1;
-    #else
-    int8_t sclPin = ES7243_SCLPIN;
-    #endif
     #ifndef MCLK_PIN
     int8_t mclkPin = I2S_PIN_NO_CHANGE;  /* ESP32: only -1, 0, 1, 3 allowed*/
     #else
@@ -1136,7 +1126,7 @@ class AudioReactive : public Usermod {
           DEBUGSR_PRINTLN(F("AR: ES7243 Microphone (right channel only)."));
           audioSource = new ES7243(SAMPLE_RATE, BLOCK_SIZE);
           delay(100);
-          if (audioSource) audioSource->initialize(sdaPin, sclPin, i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
           break;
         case 3:
           DEBUGSR_PRINT(F("AR: SPH0645 Microphone - ")); DEBUGSR_PRINTLN(F(I2S_MIC_CHANNEL_TEXT));
@@ -1159,6 +1149,13 @@ class AudioReactive : public Usermod {
           if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin);
           break;
         #endif
+        case 6:
+          DEBUGSR_PRINTLN(F("AR: ES8388 Source"));
+          audioSource = new ES8388Source(SAMPLE_RATE, BLOCK_SIZE);
+          delay(100);
+          if (audioSource) audioSource->initialize(i2swsPin, i2ssdPin, i2sckPin, mclkPin);
+          break;
+
         #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3) && !defined(CONFIG_IDF_TARGET_ESP32S3)
         // ADC over I2S is only possible on "classic" ESP32
         case 0:
@@ -1657,8 +1654,6 @@ class AudioReactive : public Usermod {
       pinArray.add(i2swsPin);
       pinArray.add(i2sckPin);
       pinArray.add(mclkPin);
-      pinArray.add(sdaPin);
-      pinArray.add(sclPin);
 
       JsonObject cfg = top.createNestedObject("config");
       cfg[F("squelch")] = soundSquelch;
@@ -1719,8 +1714,6 @@ class AudioReactive : public Usermod {
       configComplete &= getJsonValue(top[FPSTR(_digitalmic)]["pin"][1], i2swsPin);
       configComplete &= getJsonValue(top[FPSTR(_digitalmic)]["pin"][2], i2sckPin);
       configComplete &= getJsonValue(top[FPSTR(_digitalmic)]["pin"][3], mclkPin);
-      configComplete &= getJsonValue(top[FPSTR(_digitalmic)]["pin"][4], sdaPin);
-      configComplete &= getJsonValue(top[FPSTR(_digitalmic)]["pin"][5], sclPin);
 
       configComplete &= getJsonValue(top["config"][F("squelch")], soundSquelch);
       configComplete &= getJsonValue(top["config"][F("gain")],    sampleGain);
@@ -1752,6 +1745,8 @@ class AudioReactive : public Usermod {
     #if  !defined(CONFIG_IDF_TARGET_ESP32S2) && !defined(CONFIG_IDF_TARGET_ESP32C3)
       oappend(SET_F("addOption(dd,'Generic I2S PDM',5);"));
     #endif
+    oappend(SET_F("addOption(dd,'ES8388',6);"));
+    
       oappend(SET_F("dd=addDropdown('AudioReactive','config:AGC');"));
       oappend(SET_F("addOption(dd,'Off',0);"));
       oappend(SET_F("addOption(dd,'Normal',1);"));
@@ -1784,8 +1779,6 @@ class AudioReactive : public Usermod {
       #else
         oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',3,'<i>master clock</i>','I2S MCLK');"));
       #endif
-      oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',4,'','I2C SDA');"));
-      oappend(SET_F("addInfo('AudioReactive:digitalmic:pin[]',5,'','I2C SCL');"));
     }
 
 
