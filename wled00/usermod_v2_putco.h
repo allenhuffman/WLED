@@ -1719,11 +1719,6 @@ public:
                     workbladeState = WORKBLADE_STATE_OVERRIDE1;
                     addPresetToQueue (workbladeOverride1Preset);
                 }
-                else // already in this mode, end it.
-                {
-                    workbladeState = WORKBLADE_STATE_NORMAL;
-                    addPresetToQueue(workbladePreset);
-                }
                 break;
         }
 
@@ -1737,12 +1732,7 @@ public:
                     configTimer = 0; // Kill the timer, if in progress.
 
                     workbladeState = WORKBLADE_STATE_OVERRIDE2;
-                    addPresetToQueue(workbladeOverride2Preset);
-                }
-                else // already in this mode, end it.
-                {
-                    workbladeState = WORKBLADE_STATE_NORMAL;
-                    addPresetToQueue(workbladePreset);
+                    addPresetToQueue (workbladeOverride2Preset);
                 }
                 break;
         }
