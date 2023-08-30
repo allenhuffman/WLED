@@ -104,6 +104,7 @@ void showButtonStatus(void);
 #define DEFAULT_PRESET_WORKBLADE_STARTUP    0 // Not enabled by default.
 #define DEFAULT_PRESET_WORKBLADE_OVERRIDE1  0 // Not enabled by default.
 #define DEFAULT_PRESET_WORKBLADE_OVERRIDE2  0 // Not enabled by default.
+#define DEFAULT_PRESET_WORKBLADE_OVERRIDE3  0 // Not enabled by default.
 
 // PRESETS: Default presets (if config has not been created).
 #define DEFAULT_BRAKE_PRESET                DEFAULT_PRESET_BRAKE_FIRST
@@ -116,6 +117,7 @@ void showButtonStatus(void);
 #define DEFAULT_WORKBLADE_PRESET            DEFAULT_PRESET_WORKBLADE_FIRST
 #define DEFAULT_WORKBLADE_OVERRIDE1_PRESET  DEFAULT_PRESET_WORKBLADE_OVERRIDE1
 #define DEFAULT_WORKBLADE_OVERRIDE2_PRESET  DEFAULT_PRESET_WORKBLADE_OVERRIDE2
+#define DEFAULT_WORKBLADE_OVERRIDE3_PRESET  DEFAULT_PRESET_WORKBLADE_OVERRIDE3
 
 // TIMING: Default timing values.
 #if defined(BUILD_FOR_WOKWI)
@@ -187,6 +189,7 @@ void showButtonStatus(void);
 #define CFG_JSON_WORKBLADE                      "workbladePreset"
 #define CFG_JSON_WORKBLADE_OVERRIDE1            "workbladeOverride1Preset"
 #define CFG_JSON_WORKBLADE_OVERRIDE2            "workbladeOverride2Preset"
+#define CFG_JSON_WORKBLADE_OVERRIDE3            "workbladeOverride3Preset"
 
 // Buttons  
 #define CFG_JSON_BUTTON_RUNNING                 "buttonRunning"
@@ -285,6 +288,7 @@ void showButtonStatus(void);
 #define WORKBLADE_STATE_NORMAL      0   // Cycle through workblade presets
 #define WORKBLADE_STATE_OVERRIDE1   1   // Playing Override 1 preset
 #define WORKBLADE_STATE_OVERRIDE2   2   // Playing Override 2 preset
+#define WORKBLADE_STATE_OVERRIDE3   3   // Playing Override 2 preset
 
 // STATE_RUNNING - TURNING modes:
 
@@ -342,7 +346,8 @@ private:
     int hazardPreset = DEFAULT_HAZARD_PRESET;
     int workbladePreset = DEFAULT_WORKBLADE_PRESET;
     int workbladeOverride1Preset = DEFAULT_WORKBLADE_OVERRIDE1_PRESET;
-    int workbladeOverride2Preset = DEFAULT_WORKBLADE_OVERRIDE1_PRESET;
+    int workbladeOverride2Preset = DEFAULT_WORKBLADE_OVERRIDE2_PRESET;
+    int workbladeOverride3Preset = DEFAULT_WORKBLADE_OVERRIDE3_PRESET;
 
     // Button mapping
     int buttonRunning = DEFAULT_BUTTON_RUNNING;
@@ -395,6 +400,7 @@ private:
     int presetWorkbladeOff =   DEFAULT_PRESET_WORKBLADE_OFF;
     int presetWorkbladeOverride1 = DEFAULT_PRESET_WORKBLADE_OVERRIDE1;
     int presetWorkbladeOverride2 = DEFAULT_PRESET_WORKBLADE_OVERRIDE2;
+    int presetWorkbladeOverride3 = DEFAULT_PRESET_WORKBLADE_OVERRIDE3;
 
     // Arrays of presets that are continuous or solid
 #if !defined(BUILD_FOR_WOKWI)
@@ -504,9 +510,10 @@ private:
 
     // HACK
     int lastTwoButtonStatus = BUTTON_RELEASED;
-    bool tapWireReleased = false;
+    bool tapWireReleased = true;
     int leftButtonCounter = 0;
     int rightButtonCounter = 0;
+    int override3Released = true;
 
 #if !defined(BUILD_FOR_WOKWI)
 public:
@@ -1648,13 +1655,18 @@ public:
             case BUTTON_SHORT_PRESS:
                 if (workbladeState != WORKBLADE_STATE_NORMAL)
                 {
-                    // Reset
-                    tapWireReleased = true;
-
                     workbladeState = WORKBLADE_STATE_NORMAL;
-                }
 
-                if (tapWireReleased == true)
+                    // Start the workblade preset.
+                    addPresetToQueue(workbladePreset);
+
+                    orgWorkbladePreset = workbladePreset;
+
+                    configTimer = 0;
+
+                    tapWireReleased = false;
+                }
+                else if (tapWireReleased == true)
                 {
                     tapWireReleased = false;
 
@@ -1683,9 +1695,12 @@ public:
                 break;
 
             case BUTTON_RELEASED: // no button, check for timeout.
+                tapWireReleased = true;
+
                 if (workbladeState != WORKBLADE_STATE_NORMAL)
                 {
-                    workbladeState = WORKBLADE_STATE_NORMAL;
+                    // Not waiting for config timeout.
+                    configTimer = 0;
                 }
 
                 // If no press in X seconds, the preset will be selected and
@@ -1707,35 +1722,70 @@ public:
                 break;
         } // end of switch (getLastPolledButtonStatus(buttonTapWire))
 
-        // Override1
-        switch (getLastPolledButtonStatus(buttonOverride1))
+        // Override3 (button 1 + 2)
+        switch (getLastPolledTwoButtonStatus(buttonOverride1, buttonOverride2))
         {
-            case BUTTON_SHORT_PRESS:
-                if (workbladeState != WORKBLADE_STATE_OVERRIDE1)
+            case BUTTON_RELEASED: // Both off
+                // HACK for Walter.
+                if (workbladeState == WORKBLADE_STATE_OVERRIDE3)
                 {
+                    // Go back to monitoring individual buttons.
+                    override3Released = true;
+                }
+                break;
+
+            case BUTTON_SHORT_PRESS:
+                if (workbladeState != WORKBLADE_STATE_OVERRIDE3)
+                {
+                    workbladeState = WORKBLADE_STATE_OVERRIDE3;
+
+                    // Ignore override buttons until this is released.
+                    override3Released = false;
+
                     // Reset
                     configTimer = 0; // Kill the timer, if in progress.
 
-                    workbladeState = WORKBLADE_STATE_OVERRIDE1;
-                    addPresetToQueue (workbladeOverride1Preset);
+                    addPresetToQueue (workbladeOverride3Preset);
                 }
                 break;
         }
-
-        // Override2
-        switch (getLastPolledButtonStatus(buttonOverride2))
+        
+        // Both buttons not pressed. Check individually.
+        if (override3Released == true)
         {
-            case BUTTON_SHORT_PRESS:
-                if (workbladeState != WORKBLADE_STATE_OVERRIDE2)
-                {
-                    // Reset
-                    configTimer = 0; // Kill the timer, if in progress.
+            // Override1
+            switch (getLastPolledButtonStatus(buttonOverride1))
+            {
+                case BUTTON_SHORT_PRESS:
+                    if (workbladeState != WORKBLADE_STATE_OVERRIDE1)
+                    {
+                        workbladeState = WORKBLADE_STATE_OVERRIDE1;
 
-                    workbladeState = WORKBLADE_STATE_OVERRIDE2;
-                    addPresetToQueue (workbladeOverride2Preset);
-                }
-                break;
-        }
+                        // Reset
+                        configTimer = 0; // Kill the timer, if in progress.
+
+                        addPresetToQueue (workbladeOverride1Preset);
+                    }
+                    break;
+            }
+
+            // Override2
+            switch (getLastPolledButtonStatus(buttonOverride2))
+            {
+                case BUTTON_SHORT_PRESS:
+                    if (workbladeState != WORKBLADE_STATE_OVERRIDE2)
+                    {
+                        workbladeState = WORKBLADE_STATE_OVERRIDE2;
+
+                        // Reset
+                        configTimer = 0; // Kill the timer, if in progress.
+
+                        addPresetToQueue (workbladeOverride2Preset);
+                    }
+                    break;
+            }
+
+        } // end of if (override3Released == true)
 
     } // end of handleWorkblade()
 
@@ -1899,7 +1949,7 @@ public:
     /*----------------------------------------------------------------------*/
     void showButtonStatus()
     {
-        static int lastBtnStatus[WLED_MAX_BUTTONS] = { 0,0,0,0,0,0 };
+        static int lastBtnStatus[WLED_MAX_BUTTONS] = { 0,0,0,0,0,0,0,0 };
         for (int btn=0; btn<WLED_MAX_BUTTONS; btn++)
         {
             int btnStatus = getLastPolledButtonStatus(btn);
@@ -1974,6 +2024,7 @@ public:
         top[CFG_JSON_WORKBLADE] = workbladePreset;
         top[CFG_JSON_WORKBLADE_OVERRIDE1] = workbladeOverride1Preset;
         top[CFG_JSON_WORKBLADE_OVERRIDE2] = workbladeOverride2Preset;
+        top[CFG_JSON_WORKBLADE_OVERRIDE3] = workbladeOverride3Preset;
 
         // Buttons
         top[CFG_JSON_BUTTON_RUNNING] = buttonRunning;
@@ -2115,6 +2166,7 @@ public:
         configComplete &= getJsonValue(top[CFG_JSON_WORKBLADE], workbladePreset, DEFAULT_WORKBLADE_PRESET);
         configComplete &= getJsonValue(top[CFG_JSON_WORKBLADE_OVERRIDE1], workbladeOverride1Preset, DEFAULT_WORKBLADE_OVERRIDE1_PRESET);
         configComplete &= getJsonValue(top[CFG_JSON_WORKBLADE_OVERRIDE2], workbladeOverride2Preset, DEFAULT_WORKBLADE_OVERRIDE2_PRESET);
+        configComplete &= getJsonValue(top[CFG_JSON_WORKBLADE_OVERRIDE3], workbladeOverride3Preset, DEFAULT_WORKBLADE_OVERRIDE2_PRESET);
 
         // Buttons
         configComplete &= getJsonValue(top[CFG_JSON_BUTTON_RUNNING], buttonRunning, DEFAULT_BUTTON_RUNNING);
